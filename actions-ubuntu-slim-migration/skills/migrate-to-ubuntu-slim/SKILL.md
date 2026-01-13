@@ -2,6 +2,7 @@
 name: migrate-to-ubuntu-slim
 description: This skill should be used when the user asks to "migrate to ubuntu-slim".
 allowed-tools: Bash, Read, Edit, Glob, Grep
+user-invocable: true
 ---
 
 # Migrate GitHub Actions to ubuntu-slim
