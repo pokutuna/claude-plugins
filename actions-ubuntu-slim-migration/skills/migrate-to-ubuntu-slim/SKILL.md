@@ -31,7 +31,7 @@ First, discover all workflows and create a task list.
 
 1. List workflow files:
 ```bash
-ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null
+ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null || true
 ```
 
 2. Create a todo list with tasks:
@@ -48,7 +48,7 @@ For each workflow, perform TWO checks:
 
 Run the analysis script:
 ```bash
-${CLAUDE_PLUGIN_ROOT}/skills/migrate-to-ubuntu-slim/scripts/analyze-workflow.sh <workflow-name>
+${CLAUDE_PLUGIN_ROOT}/skills/migrate-to-ubuntu-slim/scripts/analyze-workflow-duration.sh <workflow-file>
 ```
 
 Output: `workflow	n	mean	stddev	mean+2σ	migration	reason`
@@ -62,23 +62,31 @@ Output: `workflow	n	mean	stddev	mean+2σ	migration	reason`
 
 Read the workflow YAML and check for incompatible patterns.
 
+Run a quick keyword scan to surface suspicious commands:
+```bash
+${CLAUDE_PLUGIN_ROOT}/skills/migrate-to-ubuntu-slim/scripts/check-slim-compat.sh <workflow-file>
+```
+Review matched lines and check if the workflow installs the tool before using it. If not, keep `ubuntu-latest` or add explicit install steps. Note: this script only checks for common CLI tools. Manually verify the patterns listed below (e.g., `services:`, `container:`).
+
 **Reject if ANY found:**
 
 | Pattern | Reason |
 |---------|--------|
 | `services:` | Docker service containers not supported |
 | `container:` | Custom container images may not work |
-| `docker build`, `docker-compose` | CPU/memory heavy |
+| `docker build`, `docker push`, `docker compose`, `docker-compose` | **Docker is NOT available** (container-based runner) |
+| CLI tools not in preinstalled list | Missing tools require explicit install or use `ubuntu-latest` |
 | `cargo build`, `go build`, `make -j` | Heavy compilation too slow on 1 CPU |
 | `npm run build`, `webpack`, `tsc --build` | Frontend builds may be slow |
 | `java`, `gradle`, `maven`, `mvn` | JVM needs more memory |
-| Large `matrix:` strategy | May overwhelm resources |
+| Large `matrix:` strategy | Each job must still meet runtime criteria |
 
 **Good candidates:**
 - Linting (`eslint`, `ruff`, `golangci-lint`)
 - Formatting checks (`prettier`, `black`)
 - Simple unit tests
 - Notifications, issue/PR operations
+- Deploy polling/wait jobs - mostly I/O wait, low CPU usage
 
 #### Result
 
@@ -143,10 +151,12 @@ chore(ci): migrate eligible jobs to ubuntu-slim runner
 - Always verify run time data before recommending migration
 - Consider peak run times, not just averages - jobs with high variance may exceed 15-minute limit
 - Some actions may not work correctly on ubuntu-slim due to reduced resources
+- **ubuntu-slim has fewer preinstalled tools** - workflows may fail due to missing commands even if analysis passes. Actual execution is required to confirm compatibility
 - Recommend starting with non-critical workflows (linting, notifications) before migrating build/test jobs
 
 ## Reference
 
 - [GitHub Docs: GitHub-hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
-- ubuntu-slim runs as a container, not a full VM
-- Available for both public and private repositories
+- [ubuntu-slim preinstalled software](https://github.com/actions/runner-images/blob/main/images/ubuntu-slim/ubuntu-slim-Readme.md)
+
+Note: ubuntu-slim runs as a container (not a full VM) and is available for both public and private repositories.

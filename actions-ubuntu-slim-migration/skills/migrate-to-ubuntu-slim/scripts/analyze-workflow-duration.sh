@@ -1,10 +1,10 @@
 #!/bin/bash
 # Analyze workflow run times and calculate eligibility for ubuntu-slim migration
-# Usage: ./analyze-workflow.sh <workflow-name> [--repo <owner/repo>] [--limit <n>]
+# Usage: ./analyze-workflow-duration.sh <workflow-file> [--repo <owner/repo>] [--limit <n>]
 
 set -euo pipefail
 
-WORKFLOW=""
+WORKFLOW_FILE=""
 REPO=""
 LIMIT=50
 
@@ -19,18 +19,20 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      WORKFLOW="$1"
+      WORKFLOW_FILE="$1"
       shift
       ;;
   esac
 done
 
-if [[ -z "$WORKFLOW" ]]; then
-  echo "Usage: $0 <workflow-name> [--repo <owner/repo>] [--limit <n>]" >&2
+if [[ -z "$WORKFLOW_FILE" ]]; then
+  echo "Usage: $0 <workflow-file> [--repo <owner/repo>] [--limit <n>]" >&2
   exit 1
 fi
 
-gh run list $REPO --workflow="$WORKFLOW" --limit="$LIMIT" --json conclusion,startedAt,updatedAt | jq -r --arg workflow "$WORKFLOW" '
+WORKFLOW_NAME=$(basename "$WORKFLOW_FILE")
+
+gh run list $REPO --workflow="$WORKFLOW_NAME" --limit="$LIMIT" --json conclusion,startedAt,updatedAt | jq -r --arg workflow "$WORKFLOW_NAME" '
   [.[] | select(.conclusion == "success")] |
   map((.updatedAt | fromdateiso8601) - (.startedAt | fromdateiso8601)) |
   if length == 0 then
