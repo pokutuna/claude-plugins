@@ -9,10 +9,10 @@
   },
   "plugins": [
     {
-      "name": "github-actions-ubuntu-slim",
+      "name": "actions-ubuntu-slim-migration",
       "description": "Analyze and migrate GitHub Actions workflows from ubuntu-latest to ubuntu-slim for cost optimization",
-      "source": "./github-actions-ubuntu-slim",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/github-actions-ubuntu-slim"
+      "source": "./actions-ubuntu-slim-migration",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/actions-ubuntu-slim-migration"
     }
   ]
 }

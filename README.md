@@ -18,7 +18,7 @@ Then install plugins:
 
 ## Plugins
 
-### github-actions-ubuntu-slim
+### actions-ubuntu-slim-migration
 
 Analyze and migrate GitHub Actions workflows from `ubuntu-latest` to `ubuntu-slim` for cost optimization.
 
@@ -30,7 +30,7 @@ Analyze and migrate GitHub Actions workflows from `ubuntu-latest` to `ubuntu-sli
 - Creates migration plan with eligibility reasoning
 - Applies changes after user confirmation
 
-[Details](./github-actions-ubuntu-slim/README.md)
+[Details](./actions-ubuntu-slim-migration/README.md)
 
 ---
 

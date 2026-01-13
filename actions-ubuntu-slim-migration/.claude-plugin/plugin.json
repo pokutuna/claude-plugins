@@ -1,5 +1,5 @@
 {
-  "name": "github-actions-ubuntu-slim",
+  "name": "actions-ubuntu-slim-migration",
   "version": "0.1.0",
   "description": "Analyze GitHub Actions workflows and migrate from ubuntu-latest to ubuntu-slim for cost optimization",
   "author": {
