@@ -1,4 +1,5 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "pokutuna-plugins",
   "owner": {
     "name": "pokutuna"
@@ -10,7 +11,8 @@
     {
       "name": "github-actions-ubuntu-slim",
       "description": "Analyze and migrate GitHub Actions workflows from ubuntu-latest to ubuntu-slim for cost optimization",
-      "path": "./github-actions-ubuntu-slim"
+      "source": "./github-actions-ubuntu-slim",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/github-actions-ubuntu-slim"
     }
   ]
 }
