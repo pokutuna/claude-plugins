@@ -34,13 +34,17 @@ gh run list $REPO --workflow="$WORKFLOW" --limit="$LIMIT" --json conclusion,star
   [.[] | select(.conclusion == "success")] |
   map((.updatedAt | fromdateiso8601) - (.startedAt | fromdateiso8601)) |
   if length == 0 then
-    "\($workflow)\tNo successful runs\t-\t-\t-\t-"
+    "\($workflow)\t-\t-\t-\t-\t-\tNo successful runs found"
   else
     . as $durations |
     (length) as $n |
     (add / $n) as $mean |
     (if $n > 1 then (map(. - $mean | . * .) | add / ($n - 1) | sqrt) else 0 end) as $stddev |
     ($mean + 2 * $stddev) as $two_sigma |
-    "\($workflow)\t\($n)\t\($mean | floor)s\t\($stddev | floor)s\t\($two_sigma | floor)s\t\($two_sigma < 420)"
+    if $two_sigma < 420 then
+      "\($workflow)\t\($n)\t\($mean | floor)s\t\($stddev | floor)s\t\($two_sigma | floor)s\tyes\tRuntime OK (mean+2σ=\($two_sigma | floor)s < 420s)"
+    else
+      "\($workflow)\t\($n)\t\($mean | floor)s\t\($stddev | floor)s\t\($two_sigma | floor)s\tno\tRuntime too long (mean+2σ=\($two_sigma | floor)s >= 420s)"
+    end
   end
 '

@@ -51,7 +51,10 @@ Run the analysis script:
 ${CLAUDE_PLUGIN_ROOT}/skills/migrate-to-ubuntu-slim/scripts/analyze-workflow.sh <workflow-name>
 ```
 
-Output: `workflow	n	mean	stddev	mean+2σ	eligible`
+Output: `workflow	n	mean	stddev	mean+2σ	migration	reason`
+
+- `migration`: `yes`, `no`, or `-` (unknown)
+- `reason`: Human-readable explanation of the decision
 
 **Criteria**: mean + 2σ < 420 seconds (7 minutes). This allows 2x slowdown on ubuntu-slim (1 CPU vs 4 CPU) while staying under 15-minute timeout.
 
