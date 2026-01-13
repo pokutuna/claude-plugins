@@ -6,5 +6,11 @@
   "metadata": {
     "description": "Claude Code plugins by pokutuna"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "github-actions-ubuntu-slim",
+      "description": "Analyze and migrate GitHub Actions workflows from ubuntu-latest to ubuntu-slim for cost optimization",
+      "path": "./github-actions-ubuntu-slim"
+    }
+  ]
 }

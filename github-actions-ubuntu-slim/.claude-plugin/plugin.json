@@ -1,0 +1,9 @@
+{
+  "name": "github-actions-ubuntu-slim",
+  "version": "0.1.0",
+  "description": "Analyze GitHub Actions workflows and migrate from ubuntu-latest to ubuntu-slim for cost optimization",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": ["github-actions", "ubuntu-slim", "cost-optimization", "ci-cd"]
+}
