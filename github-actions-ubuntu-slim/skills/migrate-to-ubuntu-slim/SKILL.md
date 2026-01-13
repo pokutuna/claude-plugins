@@ -24,111 +24,115 @@ Best suited for: automation tasks, issue operations, short-running jobs, linting
 
 ## Migration Workflow
 
-### Step 1: Discover Workflows
+### Phase 1: Create Plan
 
-Search for workflow files in the repository:
+First, discover all workflows and create a task list.
 
+1. List workflow files:
 ```bash
-ls -la .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null
+ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null
 ```
 
-Read each workflow file to understand its structure and identify jobs using `ubuntu-latest`.
+2. Create a todo list with tasks:
+   - "Analyze workflow: <workflow-name>" for each workflow file found
+   - "Present migration plan"
+   - "Apply changes (after user confirmation)"
+   - "Show diff and prompt commit"
 
-### Step 2: Analyze Run Times
+### Phase 2: Analyze Each Workflow
 
-Use `gh` CLI to get workflow run history for the past 30 days:
+For each workflow, perform TWO checks:
 
+#### Check 1: Runtime Statistics
+
+Run the analysis script:
 ```bash
-# List workflow runs with timing
-gh run list --workflow=<workflow-file> --limit=30 --json databaseId,conclusion,updatedAt,createdAt
-
-# Get detailed timing for specific run
-gh run view <run-id> --json jobs
+${CLAUDE_PLUGIN_ROOT}/skills/migrate-to-ubuntu-slim/scripts/analyze-workflow.sh <workflow-name>
 ```
 
-Calculate average run time for each job. Only jobs with average run time **under 10 minutes** are candidates for migration.
+Output: `workflow	n	mean	stddev	mean+2σ	eligible`
 
-### Step 3: Evaluate Eligibility
+**Criteria**: mean + 2σ < 420 seconds (7 minutes). This allows 2x slowdown on ubuntu-slim (1 CPU vs 4 CPU) while staying under 15-minute timeout.
 
-A job is eligible for ubuntu-slim if ALL conditions are met:
+#### Check 2: Implementation Patterns
 
-**Include if:**
-- Average run time < 10 minutes (with margin for 15-minute timeout)
-- Simple operations: linting, formatting, type checking, unit tests, deployments
+Read the workflow YAML and check for incompatible patterns.
 
-**Exclude if:**
-- Uses `services:` (Docker service containers)
-- Uses `container:` (custom container image)
-- Requires significant memory (build processes, large test suites)
-- Has `matrix:` strategy with many combinations
-- Runs Docker builds or heavy compilation
-- Has variable run times that occasionally exceed 10 minutes
+**Reject if ANY found:**
 
-### Step 4: Present Migration Plan
+| Pattern | Reason |
+|---------|--------|
+| `services:` | Docker service containers not supported |
+| `container:` | Custom container images may not work |
+| `docker build`, `docker-compose` | CPU/memory heavy |
+| `cargo build`, `go build`, `make -j` | Heavy compilation too slow on 1 CPU |
+| `npm run build`, `webpack`, `tsc --build` | Frontend builds may be slow |
+| `java`, `gradle`, `maven`, `mvn` | JVM needs more memory |
+| Large `matrix:` strategy | May overwhelm resources |
 
-Before making changes, present a clear summary to the user:
+**Good candidates:**
+- Linting (`eslint`, `ruff`, `golangci-lint`)
+- Formatting checks (`prettier`, `black`)
+- Simple unit tests
+- Notifications, issue/PR operations
+
+#### Result
+
+Mark workflow as:
+- **Eligible**: Runtime OK AND no blocking patterns
+- **Not eligible**: Explain reason (runtime or pattern)
+
+Update todo: mark "Analyze workflow: <name>" as completed.
+
+### Phase 3: Present Migration Plan
+
+After analyzing all workflows, present summary:
 
 ```
 ## Migration Plan
 
-### Eligible for ubuntu-slim:
-| Workflow | Job | Avg Time | Reason |
-|----------|-----|----------|--------|
-| ci.yml   | lint | 2m 30s  | Simple linting, fast execution |
-| ci.yml   | test | 8m 45s  | Unit tests only, within limit |
+### Eligible:
+| Workflow | mean+2σ | Note |
+|----------|---------|------|
+| test.yml | 198s | Simple pytest |
+| lint.yml | 51s | ruff check |
 
 ### Not eligible:
-| Workflow | Job | Reason |
-|----------|-----|--------|
-| ci.yml   | build | Uses services: postgres |
-| deploy.yml | e2e | Average time 18 minutes |
-
-Proceed with migration? (y/n)
+| Workflow | Reason |
+|----------|--------|
+| build.yml | Uses services: postgres |
+| e2e.yml | mean+2σ=920s exceeds limit |
 ```
 
-Wait for user confirmation before proceeding.
+Ask user: "Proceed with migration?"
 
-### Step 5: Apply Changes
+### Phase 4: Apply Changes
 
-After user confirmation, edit workflow files to replace `ubuntu-latest` with `ubuntu-slim`:
+After user confirmation, edit each eligible workflow file:
 
 ```yaml
 # Before
-jobs:
-  lint:
-    runs-on: ubuntu-latest
+runs-on: ubuntu-latest
 
 # After
-jobs:
-  lint:
-    runs-on: ubuntu-slim
+runs-on: ubuntu-slim
 ```
 
-Use the Edit tool to make precise replacements.
+Update todo as each file is edited.
 
-### Step 6: Show Diff and Prompt Commit
+### Phase 5: Show Diff and Prompt Commit
 
-After making changes:
-
-1. Show the diff using `git diff`
-2. Remind the user to review and commit the changes
-3. **Do NOT commit automatically** - let the user decide
-
+1. Show diff:
 ```bash
 git diff .github/workflows/
 ```
 
-Suggest commit message:
+2. Suggest commit message:
 ```
 chore(ci): migrate eligible jobs to ubuntu-slim runner
-
-Migrated the following jobs to ubuntu-slim for cost optimization:
-- ci.yml: lint, test
-- deploy.yml: notify
-
-These jobs have average run times under 10 minutes and don't require
-the full resources of ubuntu-latest.
 ```
+
+3. **Do NOT commit** - let user decide.
 
 ## Important Notes
 
