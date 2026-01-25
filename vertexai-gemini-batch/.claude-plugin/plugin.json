@@ -1,0 +1,9 @@
+{
+  "name": "vertexai-gemini-batch",
+  "version": "0.1.0",
+  "description": "Generate batch input files and run Vertex AI Batch Prediction for Gemini",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": ["gemini", "vertex-ai", "batch-prediction", "google-cloud"]
+}
