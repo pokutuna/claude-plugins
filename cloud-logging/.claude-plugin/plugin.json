@@ -1,0 +1,15 @@
+{
+  "name": "cloud-logging",
+  "version": "0.1.0",
+  "description": "Investigate Google Cloud Logging with efficient context management",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "gcloud",
+    "logging",
+    "cloud-logging",
+    "investigation",
+    "google-cloud"
+  ]
+}
