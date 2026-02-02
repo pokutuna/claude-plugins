@@ -15,10 +15,16 @@
       "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/actions-ubuntu-slim-migration"
     },
     {
-      "name": "gemini-batch-request",
+      "name": "vertexai-gemini-batch",
       "description": "Generate batch input files and run Vertex AI Batch Prediction for Gemini",
-      "source": "./gemini-batch-request",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/gemini-batch-request"
+      "source": "./vertexai-gemini-batch",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/vertexai-gemini-batch"
+    },
+    {
+      "name": "cloud-logging",
+      "description": "Investigate Google Cloud Logging with efficient context management",
+      "source": "./cloud-logging",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/cloud-logging"
     }
   ]
 }
