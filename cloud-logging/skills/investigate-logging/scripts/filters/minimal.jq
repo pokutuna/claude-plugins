@@ -11,6 +11,6 @@
     .jsonPayload.message //
     .jsonPayload.msg //
     .protoPayload.status.message //
-    null
+    (.jsonPayload | if . then tostring else null end)
   )
 }]

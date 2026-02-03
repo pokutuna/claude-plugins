@@ -1,7 +1,9 @@
 ---
 name: investigate-logging
 description: |
-  This skill should be used when the user asks to "investigate logs", "analyze Cloud Logging", "debug with gcloud logs", "ログ調査", "ログを調べて", or needs to query and analyze Google Cloud Logging data.
+  Google Cloud Logging を gcloud logging read で取得し、jq/duckdb で分析するスキル。
+  Use when: "Cloud Logging", "gcloud logging", "GCP ログ調査", "GKE ログ", "Cloud Run ログ", "Cloud Audit Logs", "resource.type", "httpRequest.latency"
+  Do NOT use for: 一般的なログファイル操作、AWS CloudWatch、Azure Monitor、ローカルログ
 allowed-tools:
   - Bash(timeout *)
   - Bash(gcloud logging *)
@@ -31,6 +33,57 @@ Google Cloud Logging を効率的に調査するためのスキル。
 
 - gcloud CLI, jq, duckdb インストール済み
 - `gcloud auth login` で認証済み
+
+---
+
+## Examples
+
+### Example 1: エラー調査
+
+**User says:** 「本番で 500 エラーが発生しているので調べて」
+
+**Actions:**
+1. プロジェクト ID、サービス名、発生時間帯を確認
+2. ログの存在確認 (severity>=ERROR, limit 3)
+3. エラーログをファイルに書き出し
+4. jq でエラーメッセージとスタックトレースを抽出
+5. 発生パターンを分析 (時間帯、エンドポイント、頻度)
+
+**Result:** エラーの原因特定と発生パターンのサマリを報告
+
+### Example 2: レイテンシ調査
+
+**User says:** 「API のレスポンスが遅いので原因を調べて」
+
+**Actions:**
+1. プロジェクト ID、対象 API、時間範囲を確認
+2. HTTP リクエストログを取得 (httpRequest.latency あり)
+3. latency.jq でレイテンシ情報を抽出
+4. duckdb でパーセンタイル分析 (p50, p95, p99)
+5. 遅いリクエストの共通点を特定 (エンドポイント、クライアント等)
+
+**Result:** レイテンシ分布と遅延の原因候補を報告
+
+### Example 3: トレース調査
+
+**User says:** 「このリクエストの処理の流れを追いたい」
+
+**Actions:**
+1. 対象リクエストの trace ID を特定 (エラーログや特定リクエストから)
+2. trace ID でフィルタしてログを取得
+3. trace.jq で時系列にソートして処理フローを可視化
+4. 各 span の処理時間を確認
+
+```bash
+# trace ID でフィルタ
+timeout 60 gcloud logging read 'trace="projects/PROJECT_ID/traces/TRACE_ID"' \
+  --project PROJECT_ID --freshness 1h --format json > /tmp/trace.json
+
+# 時系列でソート
+jq -f ${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/scripts/filters/trace.jq /tmp/trace.json
+```
+
+**Result:** リクエストの処理フローと各サービスでの処理時間を報告
 
 ---
 
@@ -120,58 +173,63 @@ httpRequest.latency >= "250ms"
 ## jq フィルタ
 
 `${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/scripts/filters/` にプリセットあり。
-`ls` で確認して `-f` オプションで使用。
 
 ```bash
+# 一覧表示
+ls ${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/scripts/filters/
+
+# 使用例
 jq -f ${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/scripts/filters/minimal.jq /tmp/logs.json
 ```
+
+### フィルタ一覧
+
+| フィルタ | 用途 | 出力フィールド |
+|---------|------|---------------|
+| minimal.jq | 概要把握 | timestamp, severity, logName, resource, message |
+| http-request.jq | HTTP リクエスト詳細 | timestamp, method, url, status, latency, userAgent |
+| latency.jq | レイテンシ分析 (降順ソート) | timestamp, url, latency_ms, status |
+| error-analysis.jq | エラー調査 | timestamp, severity, message, stack, trace, spanId |
+| trace.jq | トレース調査 (時系列ソート) | timestamp, severity, trace, spanId, message, latency |
+| audit.jq | 監査ログ | timestamp, method, resource, principal, callerIp |
+| client-analysis.jq | クライアント分析 | timestamp, remoteIp, userAgent, status, path |
+| k8s-pod.jq | GKE Pod メタデータ | timestamp, namespace, pod, container, severity, message |
+| bigquery-job.jq | BigQuery ジョブ | timestamp, jobId, state, query (truncated), bytesProcessed |
+| request-summary.jq | HTTP 統計サマリ | status 別カウント、平均/最大レイテンシ |
+
+---
+
+## DuckDB による集計
+
+詳細は `${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/references/duckdb-patterns.md` を参照。
+
+```bash
+# 基本パターン: JSON を直接読み込んで集計
+duckdb -s "SELECT field, COUNT(*) FROM read_json('/tmp/logs.json') GROUP BY 1"
+```
+
+---
+
+## Troubleshooting
+
+詳細は `${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/references/troubleshooting.md` を参照。
+
+- **DEADLINE_EXCEEDED**: フィルタが広すぎる → freshness/limit を絞る、インデックスフィールドを使う
+- **ログが 0 件**: フィルタなしで存在確認、プロジェクト ID 確認、Log Router 除外確認
 
 ---
 
 ## サービス別フィルタ例
 
-### GKE
+詳細は `${CLAUDE_PLUGIN_ROOT}/skills/investigate-logging/references/service-examples.md` を参照。
 
-```bash
-resource.type="k8s_container"
-resource.labels.cluster_name="CLUSTER_NAME"
-resource.labels.namespace_name="NAMESPACE"
-resource.labels.container_name="CONTAINER"
-```
-
-### Cloud Run
-
-```bash
-resource.type="cloud_run_revision"
-resource.labels.service_name="SERVICE_NAME"
-logName="projects/PROJECT/logs/run.googleapis.com%2Frequests"
-```
-
-### App Engine
-
-```bash
-resource.type="gae_app"
-resource.labels.module_id="SERVICE_NAME"
-```
-
-### Cloud Functions
-
-```bash
-resource.type="cloud_function"
-resource.labels.function_name="FUNCTION_NAME"
-```
-
-### Load Balancer
-
-```bash
-resource.type="http_load_balancer"
-httpRequest.requestUrl:"PATTERN"
-```
-
-### 監査ログ
-
-```bash
-logName="projects/PROJECT/logs/cloudaudit.googleapis.com%2Fdata_access"
-logName="projects/PROJECT/logs/cloudaudit.googleapis.com%2Factivity"
-protoPayload.serviceName="storage.googleapis.com"
-```
+- GKE (k8s_container, k8s_cluster, k8s_node)
+- Cloud Run
+- App Engine
+- Cloud Functions
+- Load Balancer
+- 監査ログ (Cloud Audit Logs)
+- BigQuery
+- Pub/Sub
+- Cloud SQL
+- Compute Engine
