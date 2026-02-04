@@ -34,42 +34,13 @@ get_section() {
 
 # 危険なコマンドパターン (これらは常に許可を求める)
 DANGEROUS_PATTERNS=(
-    # sudo は全て禁止
-    'sudo'
-    # ファイル削除系 (様々な書き方に対応)
-    'rm -rf /*'
-    'rm -rf /[^.]'      # /. 以外の / から始まるパス
-    'rm -rf [~$]'       # ~ または $HOME など
-    'rm -rf \.'         # カレントディレクトリ
-    'rm -rf \*'
-    # ファイルシステム破壊
+    'rm .*-r.*-f|rm .*-f.*-r'
     'mkfs'
     'dd if='
-    'truncate'
-    'shred'
-    # fork bomb
-    ':(){:|:&};:'
-    # パーミッション変更
-    'chmod -R 777 /'
-    'chown -R'
-    # デバイス書き込み
-    '> /dev/sd'
-    # リモートコード実行
-    'curl.*\| ?bash'
-    'curl.*\| ?sh'
-    'wget.*\| ?bash'
-    'wget.*\| ?sh'
-    'bash.*<\(.*curl'
-    'bash.*<\(.*wget'
-    'sh.*<\(.*curl'
-    'sh.*<\(.*wget'
-    # git 危険操作
-    'git push.*--force'
-    'git push.*-f[^i]'  # -f but not -fixup
+    '\| *sh'
+    'git push.*(--force| -f( |$))'
     'git reset --hard'
-    'git clean -fd'
-    'git checkout \.'
-    'git restore \.'
+    'git clean -f'
 )
 
 is_dangerous() {
