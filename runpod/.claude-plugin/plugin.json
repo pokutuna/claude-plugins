@@ -1,0 +1,16 @@
+{
+  "name": "runpod",
+  "description": "RunPod GPU cloud management plugin for Claude Code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "runpod",
+    "gpu",
+    "cloud",
+    "machine-learning",
+    "s3",
+    "network-volume"
+  ]
+}
