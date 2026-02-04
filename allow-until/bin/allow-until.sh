@@ -5,8 +5,8 @@
 #   PreToolUse hook から呼び出され、Bash コマンドの自動承認を行う。
 #   有効化すると指定時間の間、危険なコマンド以外は許可プロンプトなしで実行される。
 #
-# 設定ファイル:
-#   ~/.claude-allow-until.conf  - git config 形式でセッションごとの有効期限を記録
+# 状態ファイル:
+#   ${XDG_STATE_HOME:-~/.local/state}/claude-allow-until.conf  - git config 形式でセッションごとの有効期限を記録
 #
 # Usage:
 #   allow-until.sh enable [minutes]  - 自動承認を有効化 (デフォルト10分)
@@ -16,8 +16,9 @@
 
 set -euo pipefail
 
-# 設定ファイルのパス (git config 形式)
-CONFIG_FILE="$HOME/.claude-allow-until.conf"
+# 状態ファイルのパス (git config 形式)
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+CONFIG_FILE="$STATE_DIR/claude-allow-until.conf"
 
 # セッションIDのチェック
 require_session_id() {
@@ -57,6 +58,7 @@ enable_allow() {
     require_session_id
     local minutes="${1:-10}"
     local until_epoch=$(($(date +%s) + minutes * 60))
+    mkdir -p "$STATE_DIR"
     git config -f "$CONFIG_FILE" "$(get_section).until" "$until_epoch"
     local until_time=$(date -r "$until_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$until_epoch" '+%Y-%m-%d %H:%M:%S')
     echo "Auto-approve enabled until $until_time ($minutes minutes)"

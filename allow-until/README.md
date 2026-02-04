@@ -40,12 +40,12 @@ This plugin provides a way to temporarily bypass permission prompts for Bash com
 
 The following patterns are always blocked and will require manual approval:
 
-- `sudo` - All sudo commands
-- `rm -rf` with dangerous paths (/, ~, $HOME, .)
-- `mkfs`, `dd if=`, `truncate`, `shred` - Filesystem destruction
-- `chmod -R 777 /`, `chown -R` - Permission changes
-- `curl | bash`, `wget | sh` - Remote code execution
-- `git push --force`, `git reset --hard`, `git clean -fd` - Destructive git operations
+- `rm -rf`, `rm -fr` - Recursive forced deletion
+- `mkfs`, `dd if=` - Filesystem destruction
+- `| sh`, `| bash` - Remote code execution via pipe
+- `git push --force`, `git push -f` - Force push
+- `git reset --hard` - Hard reset
+- `git clean -f` - Force clean
 
 ## Installation
 
@@ -68,4 +68,4 @@ Add to your Claude Code settings:
    - Is the command safe (not in the blocked list)?
 4. If both conditions are met, the command is auto-approved
 
-Session state is stored in `~/.claude-allow-until.conf` using git-config format.
+Session state is stored in `${XDG_STATE_HOME:-~/.local/state}/claude-allow-until.conf` using git-config format.
