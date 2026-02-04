@@ -29,4 +29,6 @@ Checklist for adding or updating plugins.
 - [ ] Increment `version` in `plugin.json` if plugin files changed
 - [ ] Verify entry added/updated in `marketplace.json`
 - [ ] Verify homepage URL is correct (`claude-plugins` not `claude-marketplace`)
+- [ ] Create or update `<plugin-name>/README.md`
+- [ ] Add link to plugin directory (not README) in root `README.md` if new plugin added
 - [ ] Verify `.gitignore` excludes unwanted files

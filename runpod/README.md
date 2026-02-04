@@ -26,5 +26,21 @@ Colab Secrets に以下を設定:
 #### 使用方法
 
 1. notebook を生成
-2. VSCode の Colab Kernel 拡張から実行
+2. Colab Web UI で開いて実行
 3. モデル名、RunPod Storage 情報を入力して実行
+
+### stocks
+
+RunPod の GPU 在庫状況を確認し、条件に合う GPU やリージョンを提案する。
+
+#### 前提条件
+
+- `~/.runpod/config.toml` に API キーを設定、または `RUNPOD_API_KEY` 環境変数
+
+#### フィルタオプション
+
+- `--min-memory`: 最小 VRAM (GB)
+- `--gpu`: GPU 名で絞り込み
+- `--storage`: Network Volume 対応のみ
+- `--stock`: 在庫レベル (high/medium/low)
+- `--gen`: GPU 世代 (blackwell/hopper/ada/ampere/volta/amd)
