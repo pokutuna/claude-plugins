@@ -1,0 +1,8 @@
+{
+  "name": "allow-until",
+  "description": "Time-limited auto-approval mode for Bash commands. Temporarily bypass permission prompts while blocking dangerous operations.",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": ["permissions", "automation", "bash", "hooks"]
+}
