@@ -121,6 +121,8 @@ uv run --script fetch_gpu_stocks.py --gpu h100 a100 --storage
 
 ## 注意事項
 
-- `stockStatus` は API の値をそのまま表示。Web UI の表示と異なる場合がある
-- 実際の空き状況は Pod 作成時に確認が必要
+- **`stockStatus` は信頼性が低い**: API は常に High を返すことが多く、実際の在庫状況と異なる場合がある
+- 実際の空き状況は [RunPod Web UI](https://www.runpod.io/console/gpu-cloud) で確認すること
 - 価格は Community Cloud の価格を優先表示 (ない場合は Secure Cloud)
+
+**ユーザーへの説明**: 結果を返す際、stockStatus は API の値であり実際の在庫と異なる場合があること、実際の空きは Web UI で確認するようユーザーに伝えること。
