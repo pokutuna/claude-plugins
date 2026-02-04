@@ -1,1 +1,3 @@
 docs/The-Complete-Guide-to-Building-Skills-for-Claude.md
+__pycache__/
+*.pyc
