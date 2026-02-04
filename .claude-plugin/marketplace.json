@@ -12,31 +12,37 @@
       "name": "actions-ubuntu-slim-migration",
       "description": "Analyze and migrate GitHub Actions workflows from ubuntu-latest to ubuntu-slim for cost optimization",
       "source": "./actions-ubuntu-slim-migration",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/actions-ubuntu-slim-migration"
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/actions-ubuntu-slim-migration"
     },
     {
       "name": "vertexai-gemini-batch",
       "description": "Generate batch input files and run Vertex AI Batch Prediction for Gemini",
       "source": "./vertexai-gemini-batch",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/vertexai-gemini-batch"
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/vertexai-gemini-batch"
     },
     {
       "name": "cloud-logging",
       "description": "Investigate Google Cloud Logging with efficient context management",
       "source": "./cloud-logging",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/cloud-logging"
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/cloud-logging"
     },
     {
       "name": "hydra-experiment",
       "description": "Hydra ML experiment management",
       "source": "./hydra-experiment",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/hydra-experiment"
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/hydra-experiment"
     },
     {
       "name": "allow-until",
       "description": "Time-limited auto-approval mode for Bash commands",
       "source": "./allow-until",
-      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/allow-until"
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/allow-until"
+    },
+    {
+      "name": "runpod",
+      "description": "RunPod GPU cloud management - check GPU availability, upload models to Network Volume",
+      "source": "./runpod",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/runpod"
     }
   ]
 }
