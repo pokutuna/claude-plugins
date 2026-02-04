@@ -7,7 +7,7 @@ Claude Code plugins by pokutuna.
 Add this marketplace to Claude Code:
 
 ```
-/plugin marketplace add https://github.com/pokutuna/claude-marketplace
+/plugin marketplace add https://github.com/pokutuna/claude-plugins
 ```
 
 Then install plugins:
