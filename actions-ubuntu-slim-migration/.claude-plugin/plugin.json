@@ -5,5 +5,10 @@
   "author": {
     "name": "pokutuna"
   },
-  "keywords": ["github-actions", "ubuntu-slim", "cost-optimization", "ci-cd"]
+  "keywords": [
+    "github-actions",
+    "ubuntu-slim",
+    "cost-optimization",
+    "ci-cd"
+  ]
 }

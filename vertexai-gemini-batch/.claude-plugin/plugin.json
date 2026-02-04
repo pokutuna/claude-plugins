@@ -5,5 +5,10 @@
   "author": {
     "name": "pokutuna"
   },
-  "keywords": ["gemini", "vertex-ai", "batch-prediction", "google-cloud"]
+  "keywords": [
+    "gemini",
+    "vertex-ai",
+    "batch-prediction",
+    "google-cloud"
+  ]
 }
