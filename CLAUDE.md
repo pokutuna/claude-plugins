@@ -15,6 +15,7 @@
 
 - `vertexai-gemini-batch` - Vertex AI Batch Prediction
 - `actions-ubuntu-slim-migration` - GitHub Actions ubuntu-slim 移行
+- `hydra-experiment` - Hydra による機械学習実験管理
 
 ## 開発
 
