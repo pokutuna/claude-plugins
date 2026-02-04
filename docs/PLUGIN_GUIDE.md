@@ -1,25 +1,27 @@
 # Plugin Development Guide
 
-Claude Code プラグインの作成ガイド。
-
-## ディレクトリ構造
+## Directory Structure
 
 ```
 <plugin-name>/
 ├── .claude-plugin/
-│   └── plugin.json            # プラグインマニフェスト
+│   └── plugin.json            # Plugin manifest
 ├── skills/
 │   └── <skill-name>/
-│       ├── SKILL.md           # スキル定義
-│       ├── scripts/           # バンドルスクリプト
-│       ├── references/        # 参照ドキュメント
-│       └── examples/          # サンプルコード
-├── commands/                  # スラッシュコマンド
-├── agents/                    # エージェント定義
-└── hooks/                     # フック定義
+│       ├── SKILL.md           # Skill definition
+│       └── scripts/
+│           ├── example.py     # Python script (PEP 723)
+│           ├── example.ts     # TypeScript script
+│           └── example.sh     # Shell script
+├── commands/
+│   └── <command-name>.md      # Slash commands
+├── agents/
+│   └── <agent-name>.md        # Agent definitions
+└── hooks/
+    └── <hook-name>.md         # Hook definitions
 ```
 
-命名規則: kebab-case (例: `gemini-batch-request`)
+Naming convention: kebab-case (e.g., `my-plugin-name`)
 
 ## plugin.json
 
@@ -27,47 +29,52 @@ Claude Code プラグインの作成ガイド。
 {
   "name": "<plugin-name>",
   "version": "0.1.0",
-  "description": "プラグインの説明",
-  "author": "作者名",
+  "description": "Plugin description",
+  "author": "Author name",
   "keywords": ["keyword1", "keyword2"]
 }
 ```
 
-## SKILL.md フロントマター
+## Scripts
 
-```markdown
----
-name: <skill-name>
-description: This skill should be used when the user asks to "trigger phrase 1", "trigger phrase 2", or needs guidance on <topic>.
-allowed-tools: Bash, Read, Edit, Write, Glob, Grep
-user-invocable: true
----
-```
+Reference from SKILL.md: `${CLAUDE_PLUGIN_ROOT}/skills/<skill-name>/scripts/example.py`
 
-| フィールド | 必須 | 説明 |
-|-----------|------|------|
-| `name` | Yes | スキル名 (kebab-case) |
-| `description` | Yes | 三人称で記述。トリガーフレーズを含める |
-| `allowed-tools` | No | スキルが使用できるツール |
-| `user-invocable` | No | `/<skill-name>` で直接呼び出し可能か |
+### Python (PEP 723)
 
-
-## スクリプト
-
-### Python PEP 723 スクリプト
-
-Python スクリプトを配置する際は PEP 723 形式で依存関係を記述し、`uv run --script` で実行:
+Use PEP 723 format for dependencies, run with `uv run --script`:
+https://docs.astral.sh/uv/guides/scripts/
 
 ```python
 #!/usr/bin/env -S uv run --script
+#
 # /// script
 # dependencies = ["requests"]
 # ///
+#
 ```
 
-SKILL.md からの参照は相対パス: `./scripts/example.py`
+### TypeScript (deno / bun)
 
-## 参考
+```typescript
+#!/usr/bin/env -S deno run --allow-read --allow-net
+```
 
-- [Claude Code Plugin Structure](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/plugin-dev/skills/plugin-structure)
-- [Skill Development Guide](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/plugin-dev/skills/skill-development)
+```typescript
+#!/usr/bin/env bun
+```
+
+### Shell (bash)
+
+```bash
+#!/usr/bin/env bash
+```
+
+Use [checkbashisms](https://manpages.debian.org/testing/devscripts/checkbashisms.1.en.html) to verify bash-specific syntax if portability is a concern.
+
+## References
+
+- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills)
+- [Agent Skills API Documentation](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
+- [anthropics/skills](https://github.com/anthropics/skills) - Official skills repository
+- [anthropics/claude-plugins-official](https://github.com/anthropics/claude-plugins-official) - Official plugins repository
+- [Agent Skills Specification](https://agentskills.io)
