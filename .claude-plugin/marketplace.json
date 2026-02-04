@@ -25,6 +25,18 @@
       "description": "Investigate Google Cloud Logging with efficient context management",
       "source": "./cloud-logging",
       "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/cloud-logging"
+    },
+    {
+      "name": "hydra-experiment",
+      "description": "Hydra ML experiment management",
+      "source": "./hydra-experiment",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/hydra-experiment"
+    },
+    {
+      "name": "allow-until",
+      "description": "Time-limited auto-approval mode for Bash commands",
+      "source": "./allow-until",
+      "homepage": "https://github.com/pokutuna/claude-marketplace/tree/main/allow-until"
     }
   ]
 }

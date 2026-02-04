@@ -1,4 +1,5 @@
 ---
+name: allow-until
 description: 時限式の自動承認モードを有効化する
 allowed-tools:
   - Bash(CLAUDE_SESSION_ID=* ${CLAUDE_PLUGIN_ROOT}/bin/allow-until.sh *)
