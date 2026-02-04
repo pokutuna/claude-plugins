@@ -12,35 +12,35 @@ claude plugins add /path/to/runpod
 
 ### prepare-model-upload
 
-Colab で HuggingFace モデルをダウンロードし、RunPod の Network Volume に S3 互換 API でアップロードする。
+Download HuggingFace models on Colab and upload to RunPod Network Volume via S3-compatible API.
 
-GPU インスタンス起動前にモデルを配置しておくことで課金時間を節約。
+Pre-deploy models before GPU instance startup to save billing time.
 
-#### 前提条件
+#### Prerequisites
 
-Colab Secrets に以下を設定:
-- `HF_TOKEN`: HuggingFace アクセストークン
+Set these in Colab Secrets:
+- `HF_TOKEN`: HuggingFace access token
 - `RUNPOD_STORAGE_ACCESS_KEY_ID`: RunPod Storage Access Key ID
 - `RUNPOD_STORAGE_SECRET_ACCESS_KEY`: RunPod Storage Secret Access Key
 
-#### 使用方法
+#### Usage
 
-1. notebook を生成
-2. Colab Web UI で開いて実行
-3. モデル名、RunPod Storage 情報を入力して実行
+1. Open the Colab notebook
+2. Configure Colab Secrets
+3. Enter model names and RunPod Storage settings, then run
 
 ### stocks
 
-RunPod の GPU 在庫状況を確認し、条件に合う GPU やリージョンを提案する。
+Check RunPod GPU availability and suggest GPUs/datacenters matching requirements.
 
-#### 前提条件
+#### Prerequisites
 
-- `~/.runpod/config.toml` に API キーを設定、または `RUNPOD_API_KEY` 環境変数
+- `~/.runpod/config.toml` with API key, or `RUNPOD_API_KEY` environment variable
 
-#### フィルタオプション
+#### Filter Options
 
-- `--min-memory`: 最小 VRAM (GB)
-- `--gpu`: GPU 名で絞り込み
-- `--storage`: Network Volume 対応のみ
-- `--stock`: 在庫レベル (high/medium/low)
-- `--gen`: GPU 世代 (blackwell/hopper/ada/ampere/volta/amd)
+- `--min-memory`: Minimum VRAM (GB)
+- `--gpu`: Filter by GPU name
+- `--storage`: Network Volume supported only
+- `--stock`: Stock level (high/medium/low)
+- `--gen`: GPU generation (blackwell/hopper/ada/ampere/volta/amd)

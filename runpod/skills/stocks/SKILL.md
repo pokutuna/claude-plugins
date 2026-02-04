@@ -1,10 +1,10 @@
 ---
 name: stocks
 description: |
-  RunPod の GPU 在庫状況を取得し、条件に合う GPU とデータセンターを提案する。
-  メモリ、世代、Network Volume 対応、在庫レベルでフィルタ可能。
-  Use when user mentions "runpod gpu", "gpu availability", "gpu 在庫",
-  "runpod datacenter", "network volume 対応 gpu", "どの GPU が使える".
+  Query RunPod GPU availability and suggest GPUs/datacenters matching requirements.
+  Filter by memory, generation, Network Volume support, and stock level.
+  Use when user mentions "runpod gpu", "gpu availability", "gpu stock",
+  "runpod datacenter", "network volume gpu", "which gpu available".
 metadata:
   author: pokutuna
   version: 0.1.0
@@ -12,53 +12,53 @@ metadata:
 allowed-tools: "Bash(uv run --script fetch_gpu_stocks.py:*)"
 ---
 
-# RunPod GPU 在庫確認
+# RunPod GPU Stock Check
 
-RunPod の GPU 在庫状況をデータセンター単位で確認し、条件に合う GPU を提案する。
+Check RunPod GPU availability by datacenter and suggest GPUs matching requirements.
 
-## 前提条件
+## Prerequisites
 
-以下のいずれかで RunPod API キーを設定:
-- 環境変数 `RUNPOD_API_KEY`
-- `~/.runpod/config.toml` (runpod CLI で設定)
+Set RunPod API key via either:
+- Environment variable `RUNPOD_API_KEY`
+- `~/.runpod/config.toml` (set via runpod CLI)
 
-## スクリプト
+## Script
 
 `${CLAUDE_PLUGIN_ROOT}/skills/stocks/fetch_gpu_stocks.py`
 
-## 使用方法
+## Usage
 
 ```bash
-# 全データセンター × GPU の在庫状況
+# All datacenter × GPU availability
 uv run --script fetch_gpu_stocks.py
 
-# メモリでフィルタ (80GB 以上)
+# Filter by memory (80GB+)
 uv run --script fetch_gpu_stocks.py --min-memory 80
 
-# GPU 名でフィルタ (部分一致、複数指定可)
+# Filter by GPU name (partial match, multiple allowed)
 uv run --script fetch_gpu_stocks.py --gpu h100 5090
 
-# Network Volume (S3) 対応のデータセンターのみ
+# Network Volume (S3) supported datacenters only
 uv run --script fetch_gpu_stocks.py --storage
 
-# 在庫レベルでフィルタ
-uv run --script fetch_gpu_stocks.py --stock high    # High のみ
+# Filter by stock level
+uv run --script fetch_gpu_stocks.py --stock high    # High only
 uv run --script fetch_gpu_stocks.py --stock medium  # High + Medium
 
-# GPU 世代でフィルタ
+# Filter by GPU generation
 uv run --script fetch_gpu_stocks.py --gen hopper    # H100, H200
-uv run --script fetch_gpu_stocks.py --gen blackwell # B200, RTX 5090 など
-uv run --script fetch_gpu_stocks.py --gen ada       # RTX 4090, L40 など
-uv run --script fetch_gpu_stocks.py --gen ampere    # A100, RTX 3090 など
+uv run --script fetch_gpu_stocks.py --gen blackwell # B200, RTX 5090, etc.
+uv run --script fetch_gpu_stocks.py --gen ada       # RTX 4090, L40, etc.
+uv run --script fetch_gpu_stocks.py --gen ampere    # A100, RTX 3090, etc.
 
-# 複合条件
+# Combined filters
 uv run --script fetch_gpu_stocks.py --min-memory 80 --storage --stock high
 
-# JSON 出力
+# JSON output
 uv run --script fetch_gpu_stocks.py --json
 ```
 
-## 出力例
+## Output Example
 
 ```
 Datacenter   Location        GPU                          Mem Gen        Stock Storage    Price
@@ -71,58 +71,56 @@ US-NC-1      United States   RTX 5090                    32GB blackwell   High  
 Found 4 options across 4 datacenters, 1 GPU types
 ```
 
-## フィルタオプション
+## Filter Options
 
-| オプション | 説明 |
+| Option | Description |
+|--------|-------------|
+| `--min-memory GB` | Minimum VRAM (GB) |
+| `--gpu KEYWORD...` | Filter by GPU name (partial match, multiple) |
+| `--storage` | Network Volume supported only |
+| `--stock {high,medium,low}` | Stock level |
+| `--gen {blackwell,hopper,ada,ampere,volta,amd}` | GPU generation |
+| `--secure-cloud` | Secure Cloud only |
+| `--community-cloud` | Community Cloud only |
+| `--json` | JSON output |
+
+## GPU Generation Classification
+
+| Generation | GPUs |
 |------------|------|
-| `--min-memory GB` | 最小 VRAM (GB) |
-| `--gpu KEYWORD...` | GPU 名でフィルタ (部分一致、複数可) |
-| `--storage` | Network Volume 対応のみ |
-| `--stock {high,medium,low}` | 在庫レベル |
-| `--gen {blackwell,hopper,ada,ampere,volta,amd}` | GPU 世代 |
-| `--secure-cloud` | Secure Cloud 対応のみ |
-| `--community-cloud` | Community Cloud 対応のみ |
-| `--json` | JSON 形式で出力 |
-
-## GPU 世代の分類
-
-| 世代 | 主な GPU |
-|------|----------|
 | blackwell | B200, B300, RTX PRO 6000, RTX 5090, RTX 5080 |
 | hopper | H100, H200 |
-| ada | RTX 4090, RTX 4080, L40, L40S, RTX 6000 Ada など |
+| ada | RTX 4090, RTX 4080, L40, L40S, RTX 6000 Ada, etc. |
 | ampere | A100, A40, RTX 3090, RTX A6000, L4 |
 | volta | V100 |
 | amd | MI300X |
 
 ## Examples
 
-### ユーザーの質問に応じた使い方
-
-User: 「RTX 5090 で Network Volume 使えるところは?」
+User: "Where can I use RTX 5090 with Network Volume?"
 ```bash
 uv run --script fetch_gpu_stocks.py --gpu 5090 --storage
 ```
 
-User: 「80GB 以上の GPU で在庫あるのは?」
+User: "Which 80GB+ GPUs are in stock?"
 ```bash
 uv run --script fetch_gpu_stocks.py --min-memory 80 --stock high
 ```
 
-User: 「Hopper 世代で Storage 対応のところ」
+User: "Hopper generation with Storage support"
 ```bash
 uv run --script fetch_gpu_stocks.py --gen hopper --storage
 ```
 
-User: 「H100 と A100 の在庫比較」
+User: "Compare H100 and A100 availability"
 ```bash
 uv run --script fetch_gpu_stocks.py --gpu h100 a100 --storage
 ```
 
-## 注意事項
+## Important Notes
 
-- **`stockStatus` は信頼性が低い**: API は常に High を返すことが多く、実際の在庫状況と異なる場合がある
-- 実際の空き状況は [RunPod Web UI](https://www.runpod.io/console/gpu-cloud) で確認すること
-- 価格は Community Cloud の価格を優先表示 (ない場合は Secure Cloud)
+- **`stockStatus` is unreliable**: API often returns "High" regardless of actual availability
+- Always verify actual availability on [RunPod Web UI](https://www.runpod.io/console/gpu-cloud)
+- Prices shown are Community Cloud (falls back to Secure Cloud if unavailable)
 
-**ユーザーへの説明**: 結果を返す際、stockStatus は API の値であり実際の在庫と異なる場合があること、実際の空きは Web UI で確認するようユーザーに伝えること。
+**User communication**: When returning results, inform users that stockStatus is from the API and may not reflect actual availability. Recommend checking the Web UI for real-time status.
