@@ -1,5 +1,5 @@
 {
   "name": "hydra-experiment",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Hydra を使った機械学習実験管理のセットアップと実行をガイドするプラグイン"
 }

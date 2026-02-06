@@ -1,184 +1,180 @@
 ---
 name: experiment-setup
 description: |
-  Hydra を使った機械学習実験のパラメータ管理と実行方法をガイドする。
-  Use when user mentions "hydra", "実験管理", "config.yaml", "exp/*.yaml",
-  or asks about ML experiment configuration management.
+  Hydra による設定管理パターンをガイドする。
+  Use when user mentions "hydra", "hydra.main", "ConfigStore", "OmegaConf",
+  "config.yaml with defaults", "exp/*.yaml", "@_here_", or "--cfg job".
 metadata:
   author: pokutuna
-  version: 0.1.0
+  version: 0.2.0
 compatibility: requires hydra-core, omegaconf
 ---
 
 # Hydra 実験管理ガイド
 
 Hydra によるパラメータ管理と実験実行のパターン。
+実験パラメータと環境設定を分離し、yaml は差分だけで管理する。
 
-## ディレクトリ構造
+## 実験ディレクトリ構造
 
-```
-(repository root)
-├── experiments/
-│   ├── 001-baseline/       # 実験ディレクトリ
-│   │   ├── config.yaml
-│   │   ├── exp/
-│   │   │   ├── 001.yaml    # パラメータオーバーライド
-│   │   │   └── 002.yaml
-│   │   └── train.py
-│   ├── 002-larger-model/   # 別のアプローチ
-│   │   ├── config.yaml
-│   │   ├── exp/
-│   │   └── train.py        # 訓練コードも変わりうる
-│   └── ...
-├── input/                  # 入力データ
-└── output/                 # 実験出力
-```
-
-実験ごとに train.py を分離できるため、モデル構造やアプローチが異なる実験を並行して管理できる。
-
-## 設定の階層構造
+`experiments/` 配下に実験ごとのディレクトリ `NNN-name/` を作成する。
+アプローチが異なる実験は別ディレクトリ、同じアプローチのパラメータ違いは `exp/` 内の yaml で管理する。
 
 ```
-Config
-└── exp: ExpConfig          # 実験固有
-    ├── name, seed, ...
-    └── train: TrainConfig  # ハイパーパラメータ
+experiments/NNN-name/
+  config.yaml              # エントリポイント (defaults 指定 + hydra 設定)
+  train.py                 # dataclass 定義 + 学習ロジック
+  exp/
+    001.yaml               # パラメータ違い (差分のみ)
+    002.yaml
+  env/                     # 環境を分ける場合のみ作成
+    runpod.yaml
+    local.yaml
 ```
 
-## 1. プロジェクトルートの解決
+## 設計原則
 
-環境変数 `PROJECT_ROOT` で解決。未設定時はスクリプト位置から自動判定:
-
-```python
-import os
-from pathlib import Path
-
-PROJECT_ROOT = Path(os.environ.get(
-    "PROJECT_ROOT",
-    Path(__file__).parent.parent  # experiments/001-xxx/train.py → project root
-))
-
-input_dir = PROJECT_ROOT / "input"
-output_dir = PROJECT_ROOT / "output"
-```
-
-リモート環境 (Runpod 等) では起動時に設定:
-```bash
-export PROJECT_ROOT=/workspace/project
-```
-
-## 2. 実験設定クラス
-
-`train.py` 内:
+### 1. dataclass がデフォルト値の唯一の正
 
 ```python
 from dataclasses import dataclass, field
 from hydra.core.config_store import ConfigStore
 
 @dataclass
-class TrainConfig:
-    base_model: str = "model-name"
-    epoch: int = 3
-    batch_size: int = 32
-    learning_rate: float = 5e-5
-
-@dataclass
 class ExpConfig:
     name: str = "default"
-    fold: list[int] = field(default_factory=lambda: [0, 1, 2, 3, 4])
     seed: int = 42
-    debug: bool = False
-    mode: str = "cv"  # cv or sub
-    train: TrainConfig = field(default_factory=TrainConfig)
+    learning_rate: float = 2e-5
+    batch_size: int = 16
+    # ハイパーパラメータはフラットに配置 (ネストしない)
+
+@dataclass
+class EnvConfig:
+    base_model: str = "/workspace/models/Model"
+    output_dir: str = "output/NNN-name"
+    model_output_dir: str = "/workspace/output/NNN-name"
 
 @dataclass
 class Config:
-    exp: ExpConfig
-    show_config: bool = False
+    exp: ExpConfig = field(default_factory=ExpConfig)
+    env: EnvConfig = field(default_factory=EnvConfig)
 
 cs = ConfigStore.instance()
 cs.store(name="default", group="exp", node=ExpConfig)
+cs.store(name="default", group="env", node=EnvConfig)
 ```
 
-## 3. config.yaml (ベース設定)
+`exp/default.yaml` や `env/default.yaml` は作らない (ConfigStore の `name="default"` と衝突するため)。
 
-`experiments/001-baseline/config.yaml`:
+### 2. config.yaml は defaults と hydra 設定だけ書く
 
 ```yaml
+# 設定確認: python train.py --cfg job
+# 実験指定: python train.py exp=001
+
 defaults:
 - _self_
-- exp: default
-
-exp:
-  name: baseline
-  fold: [0]  # 試行錯誤時は 1 fold
-  seed: 1209
-  debug: false
-  mode: cv
-
-show_config: false
+- exp: default                       # ConfigStore のデフォルト
+- env: default                       # ConfigStore のデフォルト (yaml なし)
+# - env: runpod                      # yaml がある場合はこちら
+- override hydra/job_logging: none   # hydra ログファイル生成を無効化
 
 hydra:
-  output_subdir: null  # .hydra/ を作らない
+  output_subdir: null   # .hydra/ ディレクトリを作らない
   job:
-    chdir: false       # cwd を変えない
+    chdir: false        # 作業ディレクトリを変更しない
   run:
-    dir: .
+    dir: .              # 出力ディレクトリをカレントに
 ```
 
-## 4. 実験オーバーライド
+config.yaml には `exp:` や `env:` ブロックで値を直接書かない。値は dataclass のデフォルトで管理し、変更は exp/*.yaml で行う。
 
-`experiments/001-baseline/exp/001.yaml`:
+### 3. 実験 yaml は差分だけ
 
 ```yaml
+# exp/001.yaml
 defaults:
-- default@_here_
+  - default@_here_    # ConfigStore の "default" スキーマを継承
 
-name: "001-larger-lr"
-
-train:
-  epoch: 5
-  learning_rate: 1e-4
-  batch_size: 16
+name: "001-lr-sweep"
+learning_rate: 5.0e-5
 ```
 
-変更したいパラメータのみ記述。他はデフォルトを継承。
+- `defaults: [default@_here_]` で dataclass のデフォルト値を継承
+- 変更するパラメータだけ書く
+- `@_here_` は「このファイル自身の位置に展開する」という意味
 
-## 5. エントリーポイント
+### 4. env は同じ実験を別マシンで動かすためのもの
+
+`EnvConfig` のデフォルト値がメインの実行環境に合っていれば yaml は不要。
+別環境で動かす必要が出たら `env/` に yaml を追加する:
+
+```yaml
+# env/local.yaml
+defaults:
+  - default@_here_
+
+base_model: "Qwen/Qwen3-4B-Instruct-2507"   # HuggingFace から取得
+model_output_dir: "output/NNN-name"           # ローカルパス
+```
+
+```bash
+python train.py exp=001 env=local
+```
+
+## exp と env の分け方
+
+| 置き場 | 内容 | 判断基準 |
+|--------|------|----------|
+| `exp`  | 学習パラメータ、データセット、seed | 実験ごとに変える値 |
+| `env`  | モデルパス、出力パス | 同じ実験を別マシンで動かすときに変える値 |
+
+## エントリーポイント
 
 ```python
 @hydra.main(version_base=None, config_path=".", config_name="config")
 def main(cfg: Config) -> None:
-    if cfg.show_config:
-        print(OmegaConf.to_yaml(cfg))
-        return
     # 実験実行...
 
 if __name__ == "__main__":
     main()
 ```
 
+## 設定確認
+
+Hydra 組み込みの `--cfg` オプションを使う。`show_config` フラグは不要。
+
+```bash
+python train.py --cfg job              # 自分の設定だけ表示
+python train.py --cfg job exp=001      # 実験指定して確認
+python train.py --cfg hydra            # Hydra 自体の設定
+python train.py --cfg all              # 全部
+```
+
 ## 実行方法
 
 ```bash
-uv run python train.py                    # ベース設定で実行
-uv run python train.py show_config=true   # 設定確認のみ
+uv run python train.py                    # デフォルト設定で実行
 uv run python train.py exp=001            # exp/001.yaml を使用
-uv run python train.py exp=001 exp.fold=[0,1,2,3,4]  # オーバーライド
-uv run python train.py exp=001 exp.debug=true        # デバッグモード
+uv run python train.py exp=001 env=local  # exp/001.yaml, env/local.yaml を使用
+uv run python train.py exp=001 exp.debug=true        # オーバーライド
+uv run python train.py exp=001 exp.batch_size=8      # 値を直接変更
 ```
 
 ## WandB 連携パターン
 
 ```python
-with wandb.init(
-    project=os.environ.get("WANDB_PROJECT", "my-project"),
-    group=exp_name,
-    name=f"{exp_name}/fold{fold}",
-    config=OmegaConf.to_container(cfg.exp, resolve=True),
-    mode="disabled" if cfg.exp.debug else "online",
-):
-    # 訓練...
+# fold: [0, 1, 2, 3, 4]
+for fold in cfg.exp.fold:
+    with wandb.init(
+        project=os.environ.get("WANDB_PROJECT", "my-project"),
+        group=cfg.exp.name,
+        name=f"{cfg.exp.name}/fold{fold}",
+        config=OmegaConf.to_container(cfg.exp, resolve=True),  # type: ignore
+        mode="disabled" if cfg.exp.debug else "online",
+    ):
+        train_fold(cfg, fold)
+        ...
 ```
 
 ## Jupyter から呼ぶ
@@ -189,7 +185,7 @@ from hydra import compose, initialize
 with initialize(version_base=None, config_path="./experiments/001-baseline"):
     cfg = compose(
         config_name="config.yaml",  # .yaml をつける
-        overrides=["exp.name=foo", "exp.fold=[0]"],
+        overrides=["exp.name=foo"],
     )
 ```
 
@@ -200,9 +196,11 @@ with initialize(version_base=None, config_path="./experiments/001-baseline"):
 User: 「新しい実験 002-larger-model を始めたい」
 
 1. ディレクトリ作成: `mkdir -p experiments/002-larger-model/exp`
-2. `config.yaml` を 001 からコピーして `exp.name` を変更
-3. `exp/001.yaml` を作成してパラメータ設定
-4. `uv run python train.py exp=001` で実行
+2. 前の実験から `config.yaml` と `train.py` をコピー
+3. train.py の dataclass を調整
+4. `exp/001.yaml` を作成してパラメータ設定
+5. `uv run python train.py --cfg job exp=001` で設定確認
+6. `uv run python train.py exp=001` で実行
 
 ### 既存実験に新しいパラメータセットを追加
 
@@ -214,19 +212,26 @@ User: 「learning rate を変えて試したい」
    - default@_here_
 
    name: "002-smaller-lr"
-
-   train:
-     learning_rate: 1e-5
+   learning_rate: 1e-5
    ```
 2. `uv run python train.py exp=002` で実行
 
-### 本番モードで全データ訓練
+### 別環境で同じ実験を実行
 
-User: 「CV 終わったので全データで訓練したい」
+User: 「ローカルで同じ実験を動かしたい」
 
-```bash
-uv run python train.py exp=001 exp.mode=sub
-```
+1. `env/local.yaml` を作成:
+   ```yaml
+   defaults:
+   - default@_here_
+
+   base_model: "Qwen/Qwen3-4B-Instruct-2507"
+   model_output_dir: "output/002-larger-model"
+   ```
+2. config.yaml の defaults で `env: local` に変更、または:
+   ```bash
+   uv run python train.py exp=001 env=local
+   ```
 
 ## Troubleshooting
 
@@ -238,14 +243,6 @@ uv run python train.py exp=001 exp.mode=sub
 
 ## Tips
 
-### defaults の書き方
-
-```yaml
-defaults:
-- _self_           # このファイルの値を最後に適用
-- exp: default     # exp/default.yaml または ConfigStore
-```
-
 ### @_here_ の意味
 
 ```yaml
@@ -253,7 +250,7 @@ defaults:
 - default@_here_   # default の内容をこの階層にマージ
 ```
 
-### dataclass の制限
+### Hydra config dataclass の制限
 
-- メソッドを生やせない (設定値から Path を返す等は不可)
-- Union 型 (`str | list[str]`) は使えない
+- OmegaConf が DictConfig に変換するためメソッドは失われる
+- Union 型 (`str | list[str]`) は OmegaConf がサポートしない
