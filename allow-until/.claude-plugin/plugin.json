@@ -1,7 +1,7 @@
 {
   "name": "allow-until",
   "description": "Time-limited auto-approval mode for Bash commands. Temporarily bypass permission prompts while blocking dangerous operations.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "pokutuna"
   },

@@ -9,7 +9,9 @@ This plugin provides a way to temporarily bypass permission prompts for Bash com
 ## Features
 
 - **Time-limited approval**: Enable auto-approval for a specified duration (default: 10 minutes)
-- **Safety first**: Dangerous commands (sudo, rm -rf, force push, etc.) always require confirmation
+- **Safety first**: Dangerous commands (rm -rf, force push, etc.) always require confirmation
+- **Customizable patterns**: Override default blocked patterns via environment variable
+- **Pattern testing**: Verify which commands are blocked with `test-pattern`
 - **Session-scoped**: Settings are isolated per Claude Code session
 - **Simple commands**: Enable, disable, or check status with `/allow-until`
 
@@ -36,16 +38,61 @@ This plugin provides a way to temporarily bypass permission prompts for Bash com
 /allow-until status
 ```
 
+### Test a command against forbidden patterns
+
+```
+/allow-until test-pattern "rm -rf /tmp/foo"
+/allow-until test-pattern "git push --force origin main"
+```
+
 ## Blocked Commands
 
 The following patterns are always blocked and will require manual approval:
 
-- `rm -rf`, `rm -fr` - Recursive forced deletion
+- `rm -rf`, `rm -fr`, `rm -r -f`, etc. - Recursive forced deletion
 - `mkfs`, `dd if=` - Filesystem destruction
 - `| sh`, `| bash` - Remote code execution via pipe
 - `git push --force`, `git push -f` - Force push
 - `git reset --hard` - Hard reset
 - `git clean -f` - Force clean
+
+## Configuration
+
+### Custom Forbidden Patterns
+
+You can override the default blocked patterns by setting the `SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS` environment variable. Patterns are separated by semicolons (`;`) and use bash regex syntax.
+
+When set, the environment variable **completely replaces** the default patterns. When unset, the defaults listed in [Blocked Commands](#blocked-commands) are used.
+
+### Setting Methods
+
+#### Claude Code settings (recommended)
+
+Set in `.claude/settings.json` or `.claude/settings.local.json`:
+
+```json
+{
+  "env": {
+    "SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS": "rm .*-(r.*f|f.*r|rf|fr);mkfs;dd if=;git push.*(--force| -f( |$))"
+  }
+}
+```
+
+#### Shell environment variable
+
+```bash
+export SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS="rm .*-(r.*f|f.*r|rf|fr);mkfs;dd if=;git push.*(--force| -f( |$))"
+```
+
+### Priority
+
+Settings are applied in the following order (highest priority first):
+
+1. `settings.json` / `settings.local.json` `env` - overrides shell environment variables
+2. Shell environment variable (`export`)
+3. Default patterns (built-in)
+
+Use `/allow-until status` to see which patterns are currently active.
 
 ## Installation
 

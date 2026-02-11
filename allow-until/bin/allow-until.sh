@@ -13,6 +13,7 @@
 #   allow-until.sh disable           - 自動承認を無効化
 #   allow-until.sh status            - 状態を表示
 #   allow-until.sh check             - hook から呼ばれる判定モード (stdin から JSON を受け取る)
+#   allow-until.sh test-pattern <command>  - コマンドが禁止パターンにマッチするかテスト
 
 set -euo pipefail
 
@@ -34,15 +35,21 @@ get_section() {
 }
 
 # 危険なコマンドパターン (これらは常に許可を求める)
-DANGEROUS_PATTERNS=(
-    'rm .*-r.*-f|rm .*-f.*-r'
-    'mkfs'
-    'dd if='
-    '\| *sh'
-    'git push.*(--force| -f( |$))'
-    'git reset --hard'
-    'git clean -f'
-)
+if [[ -n "${SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS:-}" ]]; then
+    # 環境変数が設定されている場合はそちらを使用 (セミコロン区切り)
+    IFS=';' read -ra DANGEROUS_PATTERNS <<< "$SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS"
+else
+    # デフォルトパターン
+    DANGEROUS_PATTERNS=(
+        'rm .*-(r.*f|f.*r|rf|fr)'
+        'mkfs'
+        'dd if='
+        '\| *sh'
+        'git push.*(--force| -f( |$))'
+        'git reset --hard'
+        'git clean -f'
+    )
+fi
 
 is_dangerous() {
     local cmd="$1"
@@ -76,19 +83,30 @@ show_status() {
 
     if [[ "$until_epoch" -eq 0 ]]; then
         echo "Auto-approve: disabled"
-        return
-    fi
-
-    local now=$(date +%s)
-
-    if [[ "$now" -lt "$until_epoch" ]]; then
-        local remaining=$(( (until_epoch - now) / 60 ))
-        local until_time=$(date -r "$until_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$until_epoch" '+%Y-%m-%d %H:%M:%S')
-        echo "Auto-approve: enabled until $until_time ($remaining minutes remaining)"
     else
-        echo "Auto-approve: expired"
-        git config -f "$CONFIG_FILE" --remove-section "$(get_section)" 2>/dev/null || true
+        local now=$(date +%s)
+
+        if [[ "$now" -lt "$until_epoch" ]]; then
+            local remaining=$(( (until_epoch - now) / 60 ))
+            local until_time=$(date -r "$until_epoch" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || date -d "@$until_epoch" '+%Y-%m-%d %H:%M:%S')
+            echo "Auto-approve: enabled until $until_time ($remaining minutes remaining)"
+        else
+            echo "Auto-approve: expired"
+            git config -f "$CONFIG_FILE" --remove-section "$(get_section)" 2>/dev/null || true
+        fi
     fi
+
+    # パターン一覧を表示
+    if [[ -n "${SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS:-}" ]]; then
+        echo ""
+        echo "Forbidden patterns (from SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS):"
+    else
+        echo ""
+        echo "Forbidden patterns (default):"
+    fi
+    for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+        echo "  - $pattern"
+    done
 }
 
 # hook から呼ばれる判定モード
@@ -140,6 +158,26 @@ check_approval() {
 EOF
 }
 
+test_pattern() {
+    local cmd="${1:-}"
+    if [[ -z "$cmd" ]]; then
+        echo "Usage: $0 test-pattern <command>" >&2
+        exit 1
+    fi
+
+    local matched=false
+    for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+        if [[ "$cmd" =~ $pattern ]]; then
+            echo "BLOCKED by pattern: $pattern"
+            matched=true
+        fi
+    done
+
+    if [[ "$matched" == false ]]; then
+        echo "ALLOWED (no pattern matched)"
+    fi
+}
+
 case "${1:-check}" in
     enable)
         enable_allow "${2:-10}"
@@ -153,8 +191,12 @@ case "${1:-check}" in
     check)
         check_approval
         ;;
+    test-pattern)
+        shift
+        test_pattern "$*"
+        ;;
     *)
-        echo "Usage: $0 {enable [minutes]|disable|status|check}" >&2
+        echo "Usage: $0 {enable [minutes]|disable|status|check|test-pattern <command>}" >&2
         exit 1
         ;;
 esac
