@@ -1,27 +1,25 @@
 #!/bin/bash
-# allow-until.sh - Claude Code の時限式自動承認の制御と判定
+# allow-until.sh - Time-limited auto-approval control for Claude Code
 #
-# 概要:
-#   PreToolUse hook から呼び出され、Bash コマンドの自動承認を行う。
-#   有効化すると指定時間の間、危険なコマンド以外は許可プロンプトなしで実行される。
+# Overview:
+#   Called from PreToolUse hook to auto-approve Bash commands.
+#   When enabled, non-dangerous commands are approved without prompts for a specified duration.
 #
-# 状態ファイル:
-#   ${XDG_STATE_HOME:-~/.local/state}/claude-allow-until.conf  - git config 形式でセッションごとの有効期限を記録
+# State file:
+#   ${XDG_STATE_HOME:-~/.local/state}/claude-allow-until.conf  - git-config format, per-session expiry
 #
 # Usage:
-#   allow-until.sh enable [minutes]  - 自動承認を有効化 (デフォルト10分)
-#   allow-until.sh disable           - 自動承認を無効化
-#   allow-until.sh status            - 状態を表示
-#   allow-until.sh check             - hook から呼ばれる判定モード (stdin から JSON を受け取る)
-#   allow-until.sh test-pattern <command>  - コマンドが禁止パターンにマッチするかテスト
+#   allow-until.sh enable [minutes]        - Enable auto-approval (default: 10 minutes)
+#   allow-until.sh disable                 - Disable auto-approval
+#   allow-until.sh status                  - Show current status
+#   allow-until.sh check                   - Hook mode: read JSON from stdin and decide
+#   allow-until.sh test-pattern <command>  - Test if a command matches forbidden patterns
 
 set -euo pipefail
 
-# 状態ファイルのパス (git config 形式)
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
 CONFIG_FILE="$STATE_DIR/claude-allow-until.conf"
 
-# セッションIDのチェック
 require_session_id() {
     if [[ -z "${CLAUDE_SESSION_ID:-}" ]]; then
         echo "Error: CLAUDE_SESSION_ID is not set" >&2
@@ -29,17 +27,14 @@ require_session_id() {
     fi
 }
 
-# セッションIDでセクションを分離
 get_section() {
     echo "session.${CLAUDE_SESSION_ID}"
 }
 
-# 危険なコマンドパターン (これらは常に許可を求める)
+# Dangerous command patterns (always require manual approval)
 if [[ -n "${SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS:-}" ]]; then
-    # 環境変数が設定されている場合はそちらを使用 (セミコロン区切り)
     IFS=';' read -ra DANGEROUS_PATTERNS <<< "$SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS"
 else
-    # デフォルトパターン
     DANGEROUS_PATTERNS=(
         'rm .*-(r.*f|f.*r|rf|fr)'
         'mkfs'
@@ -96,7 +91,6 @@ show_status() {
         fi
     fi
 
-    # パターン一覧を表示
     if [[ -n "${SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS:-}" ]]; then
         echo ""
         echo "Forbidden patterns (from SKILLS_ALLOW_UNTIL_FORBIDDEN_PATTERNS):"
@@ -109,44 +103,26 @@ show_status() {
     done
 }
 
-# hook から呼ばれる判定モード
 check_approval() {
     local input=$(cat)
 
-    # stdin の JSON から session_id を取得
     export CLAUDE_SESSION_ID=$(echo "$input" | jq -r '.session_id // empty')
-    if [[ -z "$CLAUDE_SESSION_ID" ]]; then
-        exit 0  # session_id がなければ通常フロー
-    fi
+    [[ -z "$CLAUDE_SESSION_ID" ]] && exit 0
 
     local command=$(echo "$input" | jq -r '.tool_input.command // empty')
+    [[ -z "$command" ]] && exit 0
 
-    # コマンドが空なら何もしない
-    if [[ -z "$command" ]]; then
-        exit 0
-    fi
-
-    # 危険なコマンドは常に許可を求める
-    if is_dangerous "$command"; then
-        exit 0
-    fi
+    # Dangerous commands always require manual approval
+    is_dangerous "$command" && exit 0
 
     local until_epoch=$(git config -f "$CONFIG_FILE" "$(get_section).until" 2>/dev/null || echo 0)
-
-    # 設定がなければ通常フロー
-    if [[ "$until_epoch" -eq 0 ]]; then
-        exit 0
-    fi
+    [[ "$until_epoch" -eq 0 ]] && exit 0
 
     local now=$(date +%s)
-
-    # 期限切れなら通常フロー
     if [[ "$now" -ge "$until_epoch" ]]; then
         git config -f "$CONFIG_FILE" --remove-section "$(get_section)" 2>/dev/null || true
         exit 0
     fi
-
-    # 自動承認
     cat <<EOF
 {
   "hookSpecificOutput": {
