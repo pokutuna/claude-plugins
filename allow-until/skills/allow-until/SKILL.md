@@ -1,6 +1,7 @@
 ---
 name: allow-until
 description: Enable time-limited auto-approval mode
+disable-model-invocation: true
 allowed-tools:
   - Bash(CLAUDE_SESSION_ID=* ${CLAUDE_PLUGIN_ROOT}/bin/allow-until.sh *)
 ---
