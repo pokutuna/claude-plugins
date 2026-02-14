@@ -26,3 +26,4 @@ Then install plugins:
 | [vertexai-gemini-batch](./vertexai-gemini-batch/) | Run Vertex AI Batch Prediction for Gemini (50% OFF) |
 | [hydra-experiment](./hydra-experiment/) | Guide Hydra-based ML experiment management |
 | [runpod](./runpod/) | RunPod GPU cloud management - check GPU availability, upload models |
+| [uv-features](./uv-features/) | Recommend lesser-known uv features (PEP 723, uvx, uv run --with, etc.) |
