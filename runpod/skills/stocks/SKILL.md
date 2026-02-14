@@ -9,7 +9,7 @@ metadata:
   author: pokutuna
   version: 0.1.0
   compatibility: RunPod API (requires ~/.runpod/config.toml or RUNPOD_API_KEY)
-allowed-tools: "Bash(uv run --script fetch_gpu_stocks.py:*)"
+allowed-tools: "Bash(uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py:*)"
 ---
 
 # RunPod GPU Stock Check
@@ -24,38 +24,38 @@ Set RunPod API key via either:
 
 ## Script
 
-`${CLAUDE_PLUGIN_ROOT}/skills/stocks/fetch_gpu_stocks.py`
+`${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py`
 
 ## Usage
 
 ```bash
 # All datacenter × GPU availability
-uv run --script fetch_gpu_stocks.py
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py
 
 # Filter by memory (80GB+)
-uv run --script fetch_gpu_stocks.py --min-memory 80
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --min-memory 80
 
 # Filter by GPU name (partial match, multiple allowed)
-uv run --script fetch_gpu_stocks.py --gpu h100 5090
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gpu h100 5090
 
 # Network Volume (S3) supported datacenters only
-uv run --script fetch_gpu_stocks.py --storage
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --storage
 
 # Filter by stock level
-uv run --script fetch_gpu_stocks.py --stock high    # High only
-uv run --script fetch_gpu_stocks.py --stock medium  # High + Medium
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --stock high    # High only
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --stock medium  # High + Medium
 
 # Filter by GPU generation
-uv run --script fetch_gpu_stocks.py --gen hopper    # H100, H200
-uv run --script fetch_gpu_stocks.py --gen blackwell # B200, RTX 5090, etc.
-uv run --script fetch_gpu_stocks.py --gen ada       # RTX 4090, L40, etc.
-uv run --script fetch_gpu_stocks.py --gen ampere    # A100, RTX 3090, etc.
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gen hopper    # H100, H200
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gen blackwell # B200, RTX 5090, etc.
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gen ada       # RTX 4090, L40, etc.
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gen ampere    # A100, RTX 3090, etc.
 
 # Combined filters
-uv run --script fetch_gpu_stocks.py --min-memory 80 --storage --stock high
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --min-memory 80 --storage --stock high
 
 # JSON output
-uv run --script fetch_gpu_stocks.py --json
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --json
 ```
 
 ## Output Example
@@ -99,22 +99,22 @@ Found 4 options across 4 datacenters, 1 GPU types
 
 User: "Where can I use RTX 5090 with Network Volume?"
 ```bash
-uv run --script fetch_gpu_stocks.py --gpu 5090 --storage
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gpu 5090 --storage
 ```
 
 User: "Which 80GB+ GPUs are in stock?"
 ```bash
-uv run --script fetch_gpu_stocks.py --min-memory 80 --stock high
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --min-memory 80 --stock high
 ```
 
 User: "Hopper generation with Storage support"
 ```bash
-uv run --script fetch_gpu_stocks.py --gen hopper --storage
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gen hopper --storage
 ```
 
 User: "Compare H100 and A100 availability"
 ```bash
-uv run --script fetch_gpu_stocks.py --gpu h100 a100 --storage
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/stocks/scripts/fetch_gpu_stocks.py --gpu h100 a100 --storage
 ```
 
 ## Important Notes

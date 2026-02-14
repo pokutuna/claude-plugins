@@ -7,7 +7,7 @@ description: |
 metadata:
   author: pokutuna
   version: 0.1.0
-allowed-tools: "Bash(uv run --script create_pod.py:*)"
+allowed-tools: "Bash(uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py:*)"
 ---
 
 # RunPod Pod Creation
@@ -31,11 +31,11 @@ Edit `runpod.toml` with your settings. Register secrets at https://console.runpo
 ## Usage
 
 ```bash
-uv run --script create_pod.py                   # Create a pod
-uv run --script create_pod.py --ssh             # Create and SSH connect
-uv run --script create_pod.py --dry-run         # Show command only
-uv run --script create_pod.py -c other.toml     # Use a different config
-uv run --script create_pod.py --gpu "RTX 5090"  # Override GPU type
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py                   # Create a pod
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py --ssh             # Create and SSH connect
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py --dry-run         # Show command only
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py -c other.toml     # Use a different config
+uv run --script ${CLAUDE_PLUGIN_ROOT}/skills/create-pod/scripts/create_pod.py --gpu "RTX 5090"  # Override GPU type
 ```
 
 See `--help` for all options. See `runpod.toml` template for all config fields.
