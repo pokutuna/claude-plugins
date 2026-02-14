@@ -52,6 +52,23 @@ Create RunPod GPU pod instances from a `runpod.toml` config file.
 - CLI overrides for GPU, datacenter, pod name
 - `--dry-run` to preview commands
 
+### volume-storage
+
+Manage files on RunPod Network Volume via S3-compatible API.
+
+#### Prerequisites
+
+- `aws` CLI installed with `[profile runpod]` in `~/.aws/config`
+- `runpod.toml` with `datacenter_id` and `network_volume_id`
+
+#### Usage
+
+```bash
+volume_storage.sh ls s3://VOLUME_ID/
+volume_storage.sh cp s3://VOLUME_ID/file.json ./file.json
+volume_storage.sh sync ./output/ s3://VOLUME_ID/output/
+```
+
 ### stocks
 
 Check RunPod GPU availability and suggest GPUs/datacenters matching requirements.
