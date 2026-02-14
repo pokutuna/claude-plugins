@@ -1,0 +1,84 @@
+# RunPod Pod Configuration
+# Place this file as runpod.toml in your project root.
+
+[pod]
+# Required: Pod name
+name = "my-project"
+
+# Required: GPU type (use `runpodctl get gpus` or stocks skill to find options)
+gpu_type = "NVIDIA RTX 5090"
+
+# Required: Container image
+image = "runpod/pytorch:1.0.2-cu1281-torch280-ubuntu2404"
+
+# Optional: Datacenter ID (omit to use any available datacenter)
+# datacenter_id = "US-NC-2"
+
+# Optional: Container disk size in GB (default: 20)
+# container_disk_size = 20
+
+# Optional: Number of GPUs (default: 1)
+# gpu_count = 1
+
+# Optional: Use Secure Cloud (default: false)
+# secure_cloud = false
+
+# Optional: Exposed ports (default: ["22/tcp"])
+# ports = ["22/tcp", "8888/http"]
+
+# Optional: Startup command (omit to use image default)
+# WARNING: Setting this overrides the image's default CMD
+# startup_command = "bash -c 'echo hello && exec /start.sh'"
+
+[volume]
+# Optional: Network Volume ID (from RunPod Console)
+# network_volume_id = "abc123def456"
+
+# Optional: Volume mount path (default: /workspace)
+# volume_path = "/workspace"
+
+# Optional: Volume quota in GB (sets WORKSPACE_QUOTA_GB env var)
+# quota_gb = 420
+
+[init]
+# Optional: Init script to run on SSH connect (path relative to this file)
+# script = "scripts/runpod/init.sh"
+
+# Optional: Commands to run on SSH connect
+# commands = ["cd /workspace/my-project", "./scripts/hello.sh"]
+
+# Optional: Open SSH in a new local tmux window (default: false)
+# tmux_window = true
+
+[env]
+# Google Cloud
+GOOGLE_CLOUD_PROJECT = "{{ RUNPOD_SECRET_GOOGLE_CLOUD_PROJECT }}"
+CLOUDSDK_CONFIG = "/workspace/.config/gcloud"
+GOOGLE_APPLICATION_CREDENTIALS = "/workspace/.config/gcloud/application_default_credentials.json"
+
+# HuggingFace
+HF_HOME = "/workspace/.cache/huggingface"
+HF_TOKEN = "{{ RUNPOD_SECRET_HF_TOKEN }}"
+
+# Weights & Biases
+WANDB_PROJECT = "my-project"
+WANDB_API_KEY = "{{ RUNPOD_SECRET_WANDB_API_KEY }}"
+WANDB_DIR = "/workspace/wandb/logs"
+
+# Kaggle
+KAGGLE_API_KEY = "{{ RUNPOD_SECRET_KAGGLE_API_KEY }}"
+
+# GitHub
+GITHUB_TOKEN = "{{ RUNPOD_SECRET_GITHUB_TOKEN }}"
+
+# Jupyter
+JUPYTER_PASSWORD = "{{ RUNPOD_SECRET_JUPYTER_PASSWORD }}"
+
+# PATH (--ssh 時に $PATH に追加される、コロン区切りで複数指定可)
+# PATH_APPEND = "/workspace/tools/google-cloud-sdk/bin:/workspace/tools/gh/bin"
+
+# Misc
+TOKENIZERS_PARALLELISM = "false"
+UV_CACHE_DIR = "/workspace/.cache/uv"
+PIP_CACHE_DIR = "/workspace/.cache/pip"
+PROJECT_ROOT = "/workspace/my-project"

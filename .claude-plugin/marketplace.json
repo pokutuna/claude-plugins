@@ -40,7 +40,7 @@
     },
     {
       "name": "runpod",
-      "description": "RunPod GPU cloud management - check GPU availability, upload models to Network Volume",
+      "description": "RunPod GPU cloud management - create pods, check GPU availability, upload models to Network Volume",
       "source": "./runpod",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/runpod"
     },

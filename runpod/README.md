@@ -29,6 +29,29 @@ Set these in Colab Secrets:
 2. Configure Colab Secrets
 3. Enter model names and RunPod Storage settings, then run
 
+### create-pod
+
+Create RunPod GPU pod instances from a `runpod.toml` config file.
+
+#### Prerequisites
+
+- `runpodctl` CLI installed and configured (`~/.runpod/config.toml`)
+
+#### Usage
+
+1. Copy template: `cp <plugin>/skills/create-pod/templates/runpod.toml ./runpod.toml`
+2. Edit `runpod.toml` with your settings
+3. Create pod: `uv run --script create_pod.py`
+4. Create and SSH: `uv run --script create_pod.py --ssh`
+
+#### Features
+
+- Config-driven pod creation (`runpod.toml`)
+- RunPod Secret support (`{{ RUNPOD_SECRET_XXX }}`)
+- SSH auto-connect with init script and tmux session
+- CLI overrides for GPU, datacenter, pod name
+- `--dry-run` to preview commands
+
 ### stocks
 
 Check RunPod GPU availability and suggest GPUs/datacenters matching requirements.
