@@ -16,6 +16,22 @@ Then install plugins:
 /plugin install <plugin-name>@pokutuna-plugins
 ```
 
+## Recommendation
+
+Install plugins with **user scope** (default), then enable per-project via `<project>/.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": {
+    "runpod@pokutuna-plugins": true
+  }
+}
+```
+
+Project-scoped installation has known bugs that prevent installing the same plugin to multiple projects:
+- [#14202](https://github.com/anthropics/claude-code/issues/14202) - Project-scoped plugins incorrectly detected as installed globally
+- [#20593](https://github.com/anthropics/claude-code/issues/20593) - Plugin install matches wrong marketplace when same plugin name exists in multiple marketplaces
+
 ## Plugins
 
 | Plugin | Description |
