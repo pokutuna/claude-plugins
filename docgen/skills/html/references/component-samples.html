@@ -292,6 +292,15 @@ $$W_{\mathrm{wide}} = \min\left(W_{\mathrm{viewport}} - 64\,\mathrm{px},\ 1600\,
     <dt>デザイントークン</dt><dd>色や寸法に意味のある名前を与えた CSS 変数。</dd>
     <dt>バンドル</dt><dd>HTML、CSS、JavaScript、画像を 1 つの HTML ファイルにまとめる処理。</dd>
     <dt>CDN</dt><dd>ライブラリを配信する共有サーバー。既定ではここから読み込む。</dd>
+    <dt>アクセント色</dt><dd>有彩色は accent1 (teal) と accent2 (amber) の 2 色だけ。用途ごとの別名はこの 2 つを指す。</dd>
+    <dt>系列色</dt><dd>c1 から c5 までの 5 色。図の凡例と chip の対応付けにだけ使い、本文では使わない。</dd>
+    <dt>chip</dt><dd>固有名やファイル名を並べる小さな枠。系列色を付けると図の凡例と対応する。</dd>
+    <dt>幅広ブロック</dt><dd><code>.dg-wide</code> を付けた要素。画面幅いっぱい (上限 1600px) に広がり、用語集に重なる分は背景色で隠す。</dd>
+    <dt>横スクロール表</dt><dd><code>.dg-table-scroll</code> で包んだ表。列が多いときだけ使い、その箱の中だけが横にスクロールする。</dd>
+    <dt>強調ボックス</dt><dd>面に枠を付けた注記。<code>data-label</code> があれば枠にまたがるタグが付く。</dd>
+    <dt>差分表示</dt><dd><code>pre.dg-diff</code>。追加と削除だけに機能色を使い、本文の装飾には流用しない。</dd>
+    <dt>テーマ</dt><dd>ライトとダークの 2 つ。右上のボタンで切り替え、選択は <code>data-theme</code> 属性に載る。</dd>
+    <dt>オフラインバンドル</dt><dd>CDN のライブラリまで取り込み、ネットワークなしで開ける 1 ファイル。</dd>
   </dl>
 </aside>
 </div>

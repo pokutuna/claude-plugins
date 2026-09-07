@@ -23,33 +23,37 @@
    Tokens
    ============================================================ */
 
-:root {
-  color-scheme: light dark;
+/* 色は light-dark(ライト, ダーク) で 1 箇所に書く。どちらを使うかは color-scheme が決める。
+   data-theme が無ければ OS 設定、あればその値に従う */
+:root { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
-  --dg-bg: #FAFAF8;
-  --dg-surface: #FFFFFF;
-  --dg-surface-alt: #F2F3F5;
-  --dg-ink: #111827;
-  --dg-ink-body: #1F2937;
-  --dg-muted: #6B7280;
-  --dg-border: #1F2937;
-  --dg-rule: #E3E5E8;
+:root {
+  --dg-bg: light-dark(#FAFAF8, #1A1D22);
+  --dg-surface: light-dark(#FFFFFF, #232830);
+  --dg-surface-alt: light-dark(#F2F3F5, #2C323B);
+  --dg-ink: light-dark(#111827, #F3F4F6);
+  --dg-ink-body: light-dark(#1F2937, #E5E7EB);
+  --dg-muted: light-dark(#6B7280, #9AA3AF);
+  --dg-border: light-dark(#1F2937, #4A5262);
+  --dg-rule: light-dark(#E3E5E8, #353B45);
   /* 有彩色は accent1 / accent2 の 2 色。用途ごとの別名はこの 2 つを指す */
-  --dg-accent1: #008080;  /* teal: divider・ラベル・番号・キーワード */
-  --dg-accent2: #B45309;  /* amber: 強調・コードの文字列/数値 */
+  --dg-accent1: light-dark(#008080, #2DD4BF);  /* teal: divider・ラベル・番号・キーワード */
+  --dg-accent2: light-dark(#B45309, #F0A82C);  /* amber: 強調・コードの文字列/数値 */
   --dg-link: var(--dg-accent1);
 
   /* 差分専用の機能色。本文の装飾には使わない */
-  --dg-add-bg: #E6F4EA;
-  --dg-add-ink: #137333;
-  --dg-del-bg: #FCE8E6;
-  --dg-del-ink: #C5221F;
+  --dg-add-bg: light-dark(#E6F4EA, #12261A);
+  --dg-add-ink: light-dark(#137333, #7EE2A8);
+  --dg-del-bg: light-dark(#FCE8E6, #2B1517);
+  --dg-del-ink: light-dark(#C5221F, #F5A3A3);
   /* 図・チップの系列色 (Okabe-Ito 系)。本文では使わない */
-  --dg-c1: #008080;
-  --dg-c2: #0072B2;
-  --dg-c3: #D97706;
-  --dg-c4: #EC4899;
-  --dg-c5: #7C3AED;
+  --dg-c1: light-dark(#008080, #2DD4BF);
+  --dg-c2: light-dark(#0072B2, #56B4E9);
+  --dg-c3: light-dark(#D97706, #F0A82C);
+  --dg-c4: light-dark(#EC4899, #F472B6);
+  --dg-c5: light-dark(#7C3AED, #A78BFA);
 
   --dg-font-sans: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
   --dg-font-mono: "Ubuntu Mono", "Noto Sans JP", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -58,61 +62,12 @@
   --dg-measure: 820px; /* 用語集なしのページ幅 */
 }
 
-:root[data-theme="dark"] {
-  --dg-bg: #1A1D22;
-  --dg-surface: #232830;
-  --dg-surface-alt: #2C323B;
-  --dg-ink: #F3F4F6;
-  --dg-ink-body: #E5E7EB;
-  --dg-muted: #9AA3AF;
-  --dg-border: #4A5262;
-  --dg-rule: #353B45;
-  --dg-accent1: #2DD4BF;
-  --dg-accent2: #F0A82C;
-
-  --dg-add-bg: #12261A;
-  --dg-add-ink: #7EE2A8;
-  --dg-del-bg: #2B1517;
-  --dg-del-ink: #F5A3A3;
-  --dg-c1: #2DD4BF;
-  --dg-c2: #56B4E9;
-  --dg-c3: #F0A82C;
-  --dg-c4: #F472B6;
-  --dg-c5: #A78BFA;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --dg-bg: #1A1D22;
-    --dg-surface: #232830;
-    --dg-surface-alt: #2C323B;
-    --dg-ink: #F3F4F6;
-    --dg-ink-body: #E5E7EB;
-    --dg-muted: #9AA3AF;
-    --dg-border: #4A5262;
-    --dg-rule: #353B45;
-    --dg-accent1: #2DD4BF;
-    --dg-accent2: #F0A82C;
-
-    --dg-add-bg: #12261A;
-    --dg-add-ink: #7EE2A8;
-    --dg-del-bg: #2B1517;
-    --dg-del-ink: #F5A3A3;
-  --dg-c1: #2DD4BF;
-  --dg-c2: #56B4E9;
-  --dg-c3: #F0A82C;
-  --dg-c4: #F472B6;
-  --dg-c5: #A78BFA;
-  }
-}
-
 * { box-sizing: border-box; }
 
 html { background: var(--dg-bg); }
 
 body {
   margin: 0;
-  background: var(--dg-bg);
   color: var(--dg-ink-body);
   font-family: var(--dg-font-sans);
   font-size: 16px;
@@ -131,7 +86,7 @@ body {
   padding: 40px 48px 64px;
 }
 
-.dg-wrap { display: block; margin-top: 36px; }
+.dg-wrap { margin-top: 36px; }
 /* 最初の節は .dg-wrap の余白で位置が決まる。用語集の見出しと上端が揃う */
 main > :first-child { margin-top: 0; }
 
@@ -158,6 +113,7 @@ aside {
   border-left: var(--dg-border-w) solid var(--dg-rule);
   font-size: 14px;
   line-height: 1.7;
+  scrollbar-width: thin;
 }
 
 /* 幅広ブロック。figure / .dg-table-scroll / table / pre / .dg-grid に .dg-wide を付けると、
@@ -187,8 +143,12 @@ aside {
 @media (max-width: 1000px) {
   .dg-page { padding: 24px 20px 48px; }
   .dg-wide { width: auto !important; margin-left: 0 !important; }
-  .dg-wrap:has(> aside) { display: block; }
   .dg-header { padding-right: 40px; } /* 固定のテーマボタンと重ねない */
+}
+
+/* 狭い画面と印刷は 1 カラム。用語集は本文の後ろに続く */
+@media (max-width: 1000px), print {
+  .dg-wrap:has(> aside) { display: block; }
   aside {
     position: static;
     max-height: none;
@@ -226,7 +186,6 @@ aside {
   color: var(--dg-muted);
   font-size: 13px;
 }
-.dg-footer .dg-credits { flex-basis: 100%; }
 
 /* ============================================================
    Headings
@@ -347,6 +306,10 @@ ol.dg-steps > li::before {
   line-height: 1;
 }
 
+/* 箱の中身は上下の余白を箱側に任せる */
+:is(.dg-card, .dg-note, .dg-sub, blockquote) > :first-child { margin-top: 0; }
+:is(.dg-card, .dg-note, .dg-sub, blockquote) > :last-child { margin-bottom: 0; }
+
 /* ============================================================
    Cards / grid
    ============================================================ */
@@ -358,8 +321,6 @@ ol.dg-steps > li::before {
   padding: 18px 22px;
   margin: 20px 0;
 }
-.dg-card > :first-child { margin-top: 0; }
-.dg-card > :last-child { margin-bottom: 0; }
 
 .dg-grid {
   display: grid;
@@ -399,46 +360,32 @@ ol.dg-steps > li::before {
   font-weight: 700;
   letter-spacing: .04em;
 }
-.dg-note > :first-child { margin-top: 0; }
-.dg-note > :last-child { margin-bottom: 0; }
 
-/* 補助情報: 沈んだ面に置く。目次も同じ見た目 */
-.dg-sub {
+/* 補助情報: 沈んだ面に置く。目次 nav.dg-toc も同じ見た目で、見出しだけ固定文字 */
+.dg-sub, nav.dg-toc {
   background: var(--dg-surface-alt);
   border-radius: var(--dg-radius);
   padding: 16px 20px;
   margin: 22px 0;
 }
-.dg-sub[data-label]::before {
-  content: attr(data-label);
+.dg-sub[data-label]::before, nav.dg-toc::before {
   display: block;
   font-size: 15.5px;
   font-weight: 700;
   color: var(--dg-accent1);
   margin-bottom: 6px;
 }
-.dg-sub > :first-child { margin-top: 0; }
-.dg-sub > :last-child { margin-bottom: 0; }
+.dg-sub[data-label]::before { content: attr(data-label); }
+nav.dg-toc::before { content: "目次"; }
 
 /* ============================================================
    Table of contents
    ============================================================ */
 
 nav.dg-toc {
-  background: var(--dg-surface-alt);
-  border-radius: var(--dg-radius);
-  padding: 16px 20px;
   margin: 0 0 40px; /* main の先頭に置く。用語集の上端と揃う */
   font-size: 14.5px;
   line-height: 1.7;
-}
-nav.dg-toc::before {
-  content: "目次";
-  display: block;
-  font-size: 15.5px;
-  font-weight: 700;
-  color: var(--dg-accent1);
-  margin-bottom: 6px;
 }
 nav.dg-toc > ol {
   list-style: none;
@@ -455,8 +402,7 @@ nav.dg-toc > ol > li::before {
   color: var(--dg-accent1);
   margin-right: .8em;
 }
-nav.dg-toc ol ol { list-style: none; margin: 0; }
-nav.dg-toc ol ol { padding-left: 2.6em; }
+nav.dg-toc ol ol { list-style: none; margin: 0; padding-left: 2.6em; }
 nav.dg-toc a { color: var(--dg-ink-body); }
 nav.dg-toc a:hover { color: var(--dg-link); }
 
@@ -487,8 +433,6 @@ blockquote {
   padding: 18px 24px;
   margin: 22px 0;
 }
-blockquote > :first-child { margin-top: 0; }
-blockquote > :last-child { margin-bottom: 0; }
 
 blockquote .dg-translation {
   border-top: var(--dg-border-w) solid var(--dg-rule);
@@ -828,6 +772,7 @@ div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
   @page { size: A4; margin: 16mm; }
 
   :root, :root[data-theme="dark"] {
+    color-scheme: light;
     --dg-bg: #FFFFFF;
     --dg-surface: #FFFFFF;
     --dg-surface-alt: #F5F5F5;
@@ -842,19 +787,7 @@ div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
 
   body { font-size: 10.5pt; line-height: 1.7; background: #fff; }
 
-  .dg-page { max-width: none; padding: 0; }
-  .dg-wrap:has(> aside) { display: block; }
-  .dg-page:not(:has(aside)) { max-width: none; }
-
-  aside {
-    position: static;
-    max-height: none;
-    overflow: visible;
-    margin-top: 20px;
-    padding: 14px 0 0;
-    border-left: none;
-    border-top: var(--dg-border-w) solid var(--dg-rule);
-  }
+  .dg-page, .dg-page:not(:has(aside)) { max-width: none; padding: 0; }
 
   .dg-copy, .dg-theme-toggle { display: none !important; }
 

@@ -43,9 +43,10 @@
   背景 `#1A1D22`、面 `#232830`、枠 `#4A5262` で段差をつけてある
 - 系列色は Okabe-Ito 系で揃え、ダークは明るい変種にする
 
-ダークは `:root[data-theme="dark"]` と `@media (prefers-color-scheme: dark)` の両方に同じ値を書く。
-メディアクエリ側は `:root:not([data-theme="light"])` に限定する。これがないと OS がダークのとき
-ボタンでライトに固定できない。
+色のトークンは `light-dark(ライト, ダーク)` で 1 箇所に書く。どちらの値を使うかは `color-scheme`
+が決め、`data-theme` が無ければ `light dark` (OS 設定に従う)、あれば `light` / `dark` に固定する。
+`color-scheme` を一緒に切り替えるので、OS がダークのままボタンでライトにしてもスクロールバーや
+フォーム部品がダークに残らない。
 
 ## 部品と実装の判断
 
