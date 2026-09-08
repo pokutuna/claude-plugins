@@ -18,7 +18,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.15.0/mermaid.min.js"></script>
 <script src="../assets/design-system/mermaid.js"></script>
 <style>
-  /* このページ固有: トークンの色見本 */
   .swatch { display: inline-block; width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--dg-rule); vertical-align: middle; }
 </style>
 </head>
@@ -31,7 +30,7 @@
 </header>
 
 <h1>docgen HTML ドキュメント デザインシステム</h1>
-<p class="dg-lede">HTML ドキュメントで使える部品と、その書き方の一覧。マークアップはこのページを正とする。骨格は <code>template.html</code> にあり、書き手が付けるクラスは <code>dg-</code> で始まるものと各節で示す補助クラスだけで、それ以外は素の要素にそのまま効く。</p>
+<p class="dg-lede">HTML ドキュメントで使える部品の markup と描画の見本。使い分けは <code>SKILL.md</code> にある。</p>
 
 
 <div class="dg-wrap">
@@ -49,13 +48,13 @@
 </nav>
 
 <h2 id="text">本文</h2>
-<p>節は <code>h2</code>、小節は <code>h3</code> にし、目次の各リンクは対応する <code>h2</code> の <code>id</code> を参照する。段落には <a href="https://example.com/docs">リンク</a>、<strong>strong (黒の太字)</strong>、<em>em (アクセント色)</em>、<code>インラインコード</code> を使える。<abbr title="Cascading Style Sheets">CSS</abbr> のような略語は <code>abbr</code> に <code>title</code> を付ける。<code>em</code> は節ごとに 1 箇所を目安にする。</p>
-<p>並列の固有名やファイル名は chip で並べる:
+<p>段落には <a href="https://example.com/docs">リンク</a>、<strong>strong</strong>、<em>em</em>、<code>インラインコード</code>、<abbr title="Cascading Style Sheets">CSS</abbr> を使える。</p>
+<p>chip の列:
   <span class="dg-chip">template.html</span>
   <span class="dg-chip">document.css</span>
   <span class="dg-chip">bundle.py</span>
 </p>
-<p>図の系列と対応させる chip にだけ <code>c1</code>〜<code>c5</code> を順に付ける:
+<p>系列色付きの chip:
   <span class="dg-chip c1">構造</span>
   <span class="dg-chip c2">文字</span>
   <span class="dg-chip c3">表</span>
@@ -63,19 +62,19 @@
   <span class="dg-chip c5">コード</span>
 </p>
 <ul>
-  <li>箇条書きは素の <code>ul</code> と <code>ol</code> を使う
-    <ul><li>入れ子もそのまま書ける</li></ul>
+  <li>箇条書き
+    <ul><li>入れ子</li></ul>
   </li>
-  <li>順番に意味のある手順は次の <code>ol.dg-steps</code> にする</li>
+  <li>2 つ目</li>
 </ul>
 
 <ol class="dg-steps">
   <li><code>template.html</code> と <code>design-system/</code> を作業ディレクトリへコピーする。</li>
-  <li>このページの部品を使って本文を組む。</li>
+  <li>部品を使って本文を組む。</li>
   <li><code>bundle.py</code> で単一ファイルにまとめて渡す。</li>
 </ol>
 
-<p><code>hr</code> は、見出しを立てるほどではないが話の向きが変わる切れ目にだけ置く。</p>
+<p>区切り線の前の段落。</p>
 
 <hr>
 
@@ -83,19 +82,14 @@
 
 <h2 id="blocks">ブロック</h2>
 
-<p>読み飛ばしてほしくない注意、制限、前提は <code>.dg-note</code> に入れる。<code>data-label</code> は何の話かを示す見出しで、省いてもよい。</p>
-
 <div class="dg-note" data-label="前提">
-  <p><code>.dg-note</code> は注意、制限、前提などに使う。</p>
+  <p>注意、制限、前提のブロック。</p>
 </div>
-
-<p>読まなくても本文が成立する補足や参考情報は <code>.dg-sub</code> に入れる。</p>
 
 <div class="dg-sub" data-label="補足">
   <p>補助情報のブロック。</p>
 </div>
 
-<p>独立した情報のまとまりは <code>.dg-card</code> に入れ、複数並べるときは <code>.dg-grid</code> で包む。</p>
 <div class="dg-grid">
   <div class="dg-card">
     <h4>テンプレート</h4>
@@ -111,7 +105,6 @@
   </div>
 </div>
 
-<p>引用は <code>blockquote</code> に <code>p</code> を入れ、訳文は <code>p.dg-translation</code>、出所は <code>cite</code> に書く。出所がウェブ上にあれば <code>cite</code> の中をリンクにする。</p>
 <blockquote>
   <p>Skills are folders of instructions, scripts, and resources that Claude loads dynamically to improve performance on specialized tasks. See <a href="https://docs.claude.com/en/docs/agents-and-tools/agent-skills/overview">the Agent Skills overview</a> for details.</p>
   <p class="dg-translation">スキルは、Claude が特定のタスクでの性能を上げるために動的に読み込む、指示・スクリプト・リソースをまとめたフォルダである。</p>
@@ -119,7 +112,6 @@
 </blockquote>
 
 <h2 id="table">表</h2>
-<p>列見出しは <code>thead</code> の <code>th</code>、行見出しは <code>tbody</code> の <code>th</code> に書き、説明は <code>caption</code> に書く。</p>
 
 <table>
   <caption>表 1. 読み込むライブラリ</caption>
@@ -133,7 +125,6 @@
   </tbody>
 </table>
 
-<p>列が多くて折り返すと読めない表だけ <code>.dg-table-scroll</code> で包む。この箱の中だけが横スクロールする。</p>
 <div class="dg-table-scroll">
   <table>
     <caption>表 2. 横スクロールする表</caption>
@@ -148,41 +139,32 @@
 </div>
 
 <h2 id="code">コード</h2>
-<p>コードは <code>pre &gt; code.language-*</code> に書く。色付けしない場合は <code>language-plaintext</code> にする。</p>
 <pre><code class="language-html">&lt;div class="dg-note" data-label="制限"&gt;
   &lt;p&gt;バンドラは stdlib だけで動く。外部パッケージは使えない。&lt;/p&gt;
 &lt;/div&gt;</code></pre>
 
-<p>差分は <code>pre.dg-diff</code> に書き、各行を <code>span.add</code>、<code>span.del</code>、<code>span.ctx</code> で包む。行頭の記号は書かない。<code>code</code> は <code>nohighlight</code> にする。</p>
 <pre class="dg-diff"><code class="nohighlight"><span class="ctx">aside table {</span>
 <span class="del">  white-space: nowrap;</span>
 <span class="add">  table-layout: fixed;</span>
 <span class="ctx">}</span></code></pre>
 
 <h2 id="tokens">色のトークン</h2>
-<p>ページ固有の <code>&lt;style&gt;</code> や図の中で色を指定するときは、カラーコードを書かずに次の変数を参照する。ここにない色 (本文や枠線など) は CSS が当てるので書き手は触らない。</p>
-
 <table>
-  <colgroup><col style="width: 25%"><col style="width: 27%"><col></colgroup>
   <caption>表 3. 書き手が指定する色トークン</caption>
   <thead>
-    <tr><th>トークン</th><th>見本</th><th>用途</th></tr>
+    <tr><th>トークン</th><th>見本</th></tr>
   </thead>
   <tbody>
-    <tr><th>--dg-accent1</th><td><span class="swatch" style="background: var(--dg-accent1)"></span></td><td>アクセント 1 (teal)。図の中で強調する線や枠に</td></tr>
-    <tr><th>--dg-accent2</th><td><span class="swatch" style="background: var(--dg-accent2)"></span></td><td>アクセント 2 (amber)。<code>em</code> と同じ色。図の中で注意を引く要素に</td></tr>
-    <tr><th>--dg-muted</th><td><span class="swatch" style="background: var(--dg-muted)"></span></td><td>補助の色。図の注記や補足の線に</td></tr>
-    <tr><th>--dg-c1 〜 --dg-c5</th><td><span class="swatch" style="background: var(--dg-c1)"></span> <span class="swatch" style="background: var(--dg-c2)"></span> <span class="swatch" style="background: var(--dg-c3)"></span> <span class="swatch" style="background: var(--dg-c4)"></span> <span class="swatch" style="background: var(--dg-c5)"></span></td><td>系列色。複数の系列を区別するときだけ順に使う。本文には使わない</td></tr>
-    <tr><th>--dg-surface</th><td><span class="swatch" style="background: var(--dg-surface)"></span></td><td>部品の面。図の中に面を置くときの背景</td></tr>
-    <tr><th>--dg-rule</th><td><span class="swatch" style="background: var(--dg-rule)"></span></td><td>細い区切り線。図の中の補助線に</td></tr>
+    <tr><th>--dg-accent1</th><td><span class="swatch" style="background: var(--dg-accent1)"></span></td></tr>
+    <tr><th>--dg-accent2</th><td><span class="swatch" style="background: var(--dg-accent2)"></span></td></tr>
+    <tr><th>--dg-muted</th><td><span class="swatch" style="background: var(--dg-muted)"></span></td></tr>
+    <tr><th>--dg-c1 〜 --dg-c5</th><td><span class="swatch" style="background: var(--dg-c1)"></span> <span class="swatch" style="background: var(--dg-c2)"></span> <span class="swatch" style="background: var(--dg-c3)"></span> <span class="swatch" style="background: var(--dg-c4)"></span> <span class="swatch" style="background: var(--dg-c5)"></span></td></tr>
+    <tr><th>--dg-surface</th><td><span class="swatch" style="background: var(--dg-surface)"></span></td></tr>
+    <tr><th>--dg-rule</th><td><span class="swatch" style="background: var(--dg-rule)"></span></td></tr>
   </tbody>
 </table>
 
-<p>図の中では、変数を直接書く代わりに <code>class="accent1"</code>、<code>class="accent2"</code>、<code>class="muted"</code>、<code>class="c1"</code> のようなクラスでも指定できる。</p>
-
 <h2 id="figure">図</h2>
-<p>図は <code>figure</code> の直下に SVG、画像、または Mermaid を置き、<code>figcaption</code> で番号と説明を書く。自作図はインライン SVG で、線と文字は色を指定しない。塗りが要る部分だけ <code>class="fill"</code>、色を変えたい部分は <code>class="accent1"</code> か <code>class="accent2"</code> を付ける。アスキーアート、絵文字、矢印文字を図記号に使わない。</p>
-
 <figure>
   <svg viewBox="0 0 420 110" width="420" height="110" role="img" aria-label="原稿から納品までの 3 段階">
     <rect x="8" y="30" width="100" height="48" rx="8"/>
@@ -193,12 +175,11 @@
     <path d="M260 54h48"/><path class="fill" d="M302 48l10 6-10 6z"/>
     <rect class="accent1" x="312" y="30" width="100" height="48" rx="8"/>
     <text x="362" y="59" text-anchor="middle" font-size="14">単一 HTML</text>
-    <text class="muted" x="210" y="100" text-anchor="middle" font-size="12">補助的な注記には muted を使う</text>
+    <text class="muted" x="210" y="100" text-anchor="middle" font-size="12">muted の注記</text>
   </svg>
-  <figcaption>図 1. インライン SVG の線画。矢印の先端だけ <code>fill</code> クラスで塗る。</figcaption>
+  <figcaption>図 1. インライン SVG の線画。</figcaption>
 </figure>
 
-<p>複数の系列を色で区別するときは <code>c1</code> から順に付ける。</p>
 <figure>
   <svg viewBox="0 0 420 150" width="420" height="150" role="img" aria-label="5 系列の棒グラフ">
     <path class="muted" d="M40 10v110h370"/>
@@ -214,10 +195,9 @@
     <text x="364" y="138" text-anchor="middle" font-size="12">c5</text>
     <path class="c2" d="M60 100 L130 80 L200 90 L270 45 L340 65 L388 55" stroke-width="2"/>
   </svg>
-  <figcaption>図 2. 系列色 <code>c1</code>〜<code>c5</code>。塗りは <code>fill</code> を併記、線は色クラスだけ。</figcaption>
+  <figcaption>図 2. 系列色を使った棒グラフと折れ線。</figcaption>
 </figure>
 
-<p>横に大きいものは <code>.dg-wide</code> を付けると画面幅いっぱい (上限 1600px) に広がる。1 枚の横長画像なら <code>figure.dg-wide</code>、複数を並べるなら <code>.dg-grid.dg-wide</code> の中に <code>figure</code> を置く。<code>.dg-table-scroll</code>、<code>table</code>、<code>pre</code> にも付けられる。画像は <code>img</code> をそのまま入れる。</p>
 <div class="dg-grid dg-wide">
   <figure>
     <svg viewBox="0 0 480 320" width="100%" role="img" aria-label="画像のプレースホルダ a">
@@ -248,12 +228,11 @@
   <svg viewBox="0 0 1600 320" width="100%" role="img" aria-label="横長の画像のプレースホルダ">
     <rect class="muted" x="1" y="1" width="1598" height="318" rx="8" stroke-dasharray="8 6"/>
     <path class="muted" d="M700 220l90-100 70 70 60-50 100 80"/>
-    <text class="muted" x="800" y="280" text-anchor="middle" font-size="16">1600 × 320 の画像が入る</text>
+    <text class="muted" x="800" y="280" text-anchor="middle" font-size="16">1600 × 320</text>
   </svg>
-  <figcaption>図 3. 幅広の 1 枚図。上の 3 枚並びは <code>.dg-grid.dg-wide</code>。</figcaption>
+  <figcaption>図 3. 幅広の 1 枚図。</figcaption>
 </figure>
 
-<p>フローチャート、シーケンス図、状態遷移図は <code>pre.dg-mermaid</code> に Mermaid の原文を書く。一方向の単純な手順は図にせず <code>ol.dg-steps</code> にする。ノードが 4 つ以上かラベルが長いときは縦方向 (<code>flowchart TD</code>) に組み、矢印の交差を避ける。ノード内に <code>&lt;br/&gt;</code> を書かず、改行が要るなら <code> / </code> で区切るか 1 行に収まるよう短くする。</p>
 <figure>
   <pre class="dg-mermaid">
 flowchart LR
@@ -279,28 +258,24 @@ sequenceDiagram
 </figure>
 
 <h2 id="math">数式</h2>
-<p>インラインは <code>$...$</code>、ディスプレイは <code>$$...$$</code> で書く。ベクトルと行列は <code>\boldsymbol</code> にし、スカラーは装飾しない。幅広部品の上限 $W_{\mathrm{wide}}$ のようなインライン数式も本文の行送りを乱さない。</p>
+<p>幅広部品の上限 $W_{\mathrm{wide}}$ のようなインライン数式。</p>
 $$W_{\mathrm{wide}} = \min\left(W_{\mathrm{viewport}} - 64\,\mathrm{px},\ 1600\,\mathrm{px}\right)$$
-
 
 </main>
 
 <aside>
   <h2>用語</h2>
   <dl>
-    <dt>コンポーネント</dt><dd>文書内で役割とマークアップが決まっている再利用可能な部品。</dd>
     <dt>デザイントークン</dt><dd>色や寸法に意味のある名前を与えた CSS 変数。</dd>
     <dt>バンドル</dt><dd>HTML、CSS、JavaScript、画像を 1 つの HTML ファイルにまとめる処理。</dd>
     <dt>CDN</dt><dd>ライブラリを配信する共有サーバー。既定ではここから読み込む。</dd>
-    <dt>アクセント色</dt><dd>有彩色は accent1 (teal) と accent2 (amber) の 2 色だけ。用途ごとの別名はこの 2 つを指す。</dd>
-    <dt>系列色</dt><dd>c1 から c5 までの 5 色。図の凡例と chip の対応付けにだけ使い、本文では使わない。</dd>
-    <dt>chip</dt><dd>固有名やファイル名を並べる小さな枠。系列色を付けると図の凡例と対応する。</dd>
-    <dt>幅広ブロック</dt><dd><code>.dg-wide</code> を付けた要素。画面幅いっぱい (上限 1600px) に広がり、用語集に重なる分は背景色で隠す。</dd>
-    <dt>横スクロール表</dt><dd><code>.dg-table-scroll</code> で包んだ表。列が多いときだけ使い、その箱の中だけが横にスクロールする。</dd>
-    <dt>強調ボックス</dt><dd>面に枠を付けた注記。<code>data-label</code> があれば枠にまたがるタグが付く。</dd>
-    <dt>差分表示</dt><dd><code>pre.dg-diff</code>。追加と削除だけに機能色を使い、本文の装飾には流用しない。</dd>
-    <dt>テーマ</dt><dd>ライトとダークの 2 つ。右上のボタンで切り替え、選択は <code>data-theme</code> 属性に載る。</dd>
     <dt>オフラインバンドル</dt><dd>CDN のライブラリまで取り込み、ネットワークなしで開ける 1 ファイル。</dd>
+    <dt>アクセント色</dt><dd>有彩色の accent1 (teal) と accent2 (amber)。用途ごとの別名もこの 2 色を指す。</dd>
+    <dt>系列色</dt><dd>c1 から c5 までの 5 色。図の系列と chip の対応付けに使い、本文では使わない。</dd>
+    <dt>chip</dt><dd>固有名やファイル名を並べる小さな枠。系列色を付けると図の凡例と対応する。</dd>
+    <dt>幅広ブロック</dt><dd><code>.dg-wide</code> を付けた要素。画面幅いっぱいに広がり、用語集に重なる分は背景色で隠す。</dd>
+    <dt>横スクロール表</dt><dd><code>.dg-table-scroll</code> で包んだ表。その箱の中だけが横にスクロールする。</dd>
+    <dt>テーマ</dt><dd>ライトとダークの 2 つ。右上のボタンで切り替え、選択は <code>data-theme</code> 属性に載る。</dd>
   </dl>
 </aside>
 </div>

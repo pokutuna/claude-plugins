@@ -1,6 +1,3 @@
-/* docgen - heading anchors
- * main 内の h2 / h3 に、その見出しへのリンク (#) を付ける。id が無い見出しには文面から生成する。
- */
 document.addEventListener('DOMContentLoaded', function () {
   var used = {};
   document.querySelectorAll('[id]').forEach(function (el) { used[el.id] = true; });

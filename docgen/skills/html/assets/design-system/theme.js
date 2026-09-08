@@ -1,7 +1,3 @@
-/* docgen - theme toggle
- * <head> の先頭近くで読み込む。描画前に data-theme を確定させてちらつきを防ぐ。
- * 保存値がなければ OS 設定に従う。
- */
 (function () {
   var KEY = 'dg-theme';
   var root = document.documentElement;

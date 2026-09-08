@@ -1,6 +1,6 @@
 {
   "name": "docgen",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "日本語の文章規範と説明ドキュメントの構成、単一ファイル HTML のデザインシステム",
   "author": {
     "name": "pokutuna"

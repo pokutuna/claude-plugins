@@ -1,30 +1,3 @@
-/* docgen design system
- *
- * 書き手が付けるクラスは dg-* と、svg / diff / コードの補助クラス (.fill .muted .accent1 .accent2 .c1〜.c5 / .add .del .ctx / language-*) だけ。
- * それ以外の見た目は要素そのものに効く。
- *   - 骨格:   .dg-page > (header.dg-header, h1, p.dg-lede, .dg-wrap > (main > (nav.dg-toc, ...), aside?), footer.dg-footer)
- *  *   - ヘッダー: header.dg-header > span + span。左は分類やテーマ、右は日付・版・実験番号など文書を特定する印
- *   - フッター: footer.dg-footer > span + span。左は文書の出所と作成日、右は生成元 (docgen へのリンク)
- *   - 見出し: h2 (節) / h3 (小節)。main 内の見出しには anchor.js が # リンクを付け、id が無ければ生成する
- *   - 用語集: aside > (h2, dl > dt + dd)
- *   - 本文:   p, a, strong, em, ul/ol, blockquote(+ .dg-translation, cite), abbr
- *   - 区切り: hr (h1 の下線と同じアクセント色)
- *   - 部品:   .dg-note[data-label]? (強調), .dg-sub[data-label]? (補助情報), .dg-card, .dg-grid, .dg-chip, .dg-steps
- *   - 表:     table (thead th = 列見出し, tbody th = 行見出し), .dg-table-scroll
- *   - 幅:     .dg-wide を figure / .dg-table-scroll / table / pre / .dg-grid に付けると画面幅に広がる
- *   - コード: pre > code.language-*, pre.dg-diff > code > span.add/.del/.ctx (copy.js が copy ボタンを付ける)
- *   - 図:     figure > (svg | img | pre.dg-mermaid), figcaption
- *             svg 内の色: .fill .muted .accent1 .accent2、系列の色分け .c1〜.c5 (.dg-chip にも可)
- *   - 数式:   $...$, $$...$$ (math.js が copy ボタンを付ける)
- * 用語集 aside があれば 2 カラム、なければ 1 カラム。切り替えクラスは無い。
- */
-
-/* ============================================================
-   Tokens
-   ============================================================ */
-
-/* 色は light-dark(ライト, ダーク) で 1 箇所に書く。どちらを使うかは color-scheme が決める。
-   data-theme が無ければ OS 設定、あればその値に従う */
 :root { color-scheme: light dark; }
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
@@ -38,17 +11,16 @@
   --dg-muted: light-dark(#6B7280, #9AA3AF);
   --dg-border: light-dark(#1F2937, #4A5262);
   --dg-rule: light-dark(#E3E5E8, #353B45);
-  /* 有彩色は accent1 / accent2 の 2 色。用途ごとの別名はこの 2 つを指す */
-  --dg-accent1: light-dark(#008080, #2DD4BF);  /* teal: divider・ラベル・番号・キーワード */
-  --dg-accent2: light-dark(#B45309, #F0A82C);  /* amber: 強調・コードの文字列/数値 */
+
+  --dg-accent1: light-dark(#008080, #2DD4BF);
+  --dg-accent2: light-dark(#B45309, #F0A82C);
   --dg-link: var(--dg-accent1);
 
-  /* 差分専用の機能色。本文の装飾には使わない */
   --dg-add-bg: light-dark(#E6F4EA, #12261A);
   --dg-add-ink: light-dark(#137333, #7EE2A8);
   --dg-del-bg: light-dark(#FCE8E6, #2B1517);
   --dg-del-ink: light-dark(#C5221F, #F5A3A3);
-  /* 図・チップの系列色 (Okabe-Ito 系)。本文では使わない */
+
   --dg-c1: light-dark(#008080, #2DD4BF);
   --dg-c2: light-dark(#0072B2, #56B4E9);
   --dg-c3: light-dark(#D97706, #F0A82C);
@@ -59,7 +31,7 @@
   --dg-font-mono: "Ubuntu Mono", "Noto Sans JP", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --dg-radius: 10px;
   --dg-border-w: 1.5px;
-  --dg-measure: 820px; /* 用語集なしのページ幅 */
+  --dg-measure: 820px;
 }
 
 * { box-sizing: border-box; }
@@ -76,10 +48,6 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-/* ============================================================
-   Page skeleton
-   ============================================================ */
-
 .dg-page {
   max-width: 1100px;
   margin: 0 auto;
@@ -87,7 +55,7 @@ body {
 }
 
 .dg-wrap { margin-top: 36px; }
-/* 最初の節は .dg-wrap の余白で位置が決まる。用語集の見出しと上端が揃う */
+
 main > :first-child { margin-top: 0; }
 
 .dg-wrap:has(> aside) {
@@ -97,7 +65,6 @@ main > :first-child { margin-top: 0; }
   align-items: start;
 }
 
-/* 用語集が無いときはページ全体を狭めて行長を抑える */
 .dg-page:not(:has(aside)) { max-width: var(--dg-measure); }
 
 main { min-width: 0; }
@@ -116,20 +83,15 @@ aside {
   scrollbar-width: thin;
 }
 
-/* 幅広ブロック。figure / .dg-table-scroll / table / pre / .dg-grid に .dg-wide を付けると、
-   画面幅いっぱい (左右 32px を残す、上限 1600px) に広がり画面中央に揃う。図や画像を横に
-   並べるブロックに使う。用語集の上に重なる分は背景色で隠す */
 .dg-page .dg-wide {
   --dg-wide-w: min(100vw - 64px, 1600px);
-  --dg-main-left: calc(max(0px, (100vw - 1100px) / 2) + 48px); /* main の左端の画面座標 */
+  --dg-main-left: calc(max(0px, (100vw - 1100px) / 2) + 48px);
   width: var(--dg-wide-w);
   margin-left: calc((100vw - var(--dg-wide-w)) / 2 - var(--dg-main-left));
   position: relative;
   z-index: 2;
   background: var(--dg-bg);
-  /* 背景は境界ボックスまでしか塗られない。上下を margin だけで空けると、
-     隣り合う .dg-wide の隙間から用語集が覗く。余白を透明な border に置き換えて
-     塗る範囲を広げ、隙間を無くす。margin と違い border は相殺されない */
+
   margin-top: 0;
   margin-bottom: 0;
   border-top: 24px solid transparent;
@@ -143,10 +105,9 @@ aside {
 @media (max-width: 1000px) {
   .dg-page { padding: 24px 20px 48px; }
   .dg-wide { width: auto !important; margin-left: 0 !important; }
-  .dg-header { padding-right: 40px; } /* 固定のテーマボタンと重ねない */
+  .dg-header { padding-right: 40px; }
 }
 
-/* 狭い画面と印刷は 1 カラム。用語集は本文の後ろに続く */
 @media (max-width: 1000px), print {
   .dg-wrap:has(> aside) { display: block; }
   aside {
@@ -159,10 +120,6 @@ aside {
     border-top: var(--dg-border-w) solid var(--dg-rule);
   }
 }
-
-/* ============================================================
-   Header / footer
-   ============================================================ */
 
 .dg-header {
   display: flex;
@@ -187,10 +144,6 @@ aside {
   font-size: 13px;
 }
 
-/* ============================================================
-   Headings
-   ============================================================ */
-
 h1, h2, h3, h4 {
   color: var(--dg-ink);
   line-height: 1.45;
@@ -213,7 +166,6 @@ h2 {
 
 h3 { font-size: 17px; margin: 28px 0 10px; }
 
-/* 見出しのアンカーリンク (anchor.js が付ける)。hover / focus で現れる */
 h2, h3 { scroll-margin-top: 16px; }
 .dg-anchor {
   margin-left: 8px;
@@ -232,10 +184,6 @@ h4 { font-size: 15.5px; margin: 22px 0 8px; color: var(--dg-ink-body); }
   font-size: 17px;
   margin: 0 0 28px;
 }
-
-/* ============================================================
-   Body text
-   ============================================================ */
 
 p { margin: 12px 0; }
 
@@ -258,8 +206,6 @@ li { margin: 4px 0; }
 li::marker { color: var(--dg-muted); }
 li > ul, li > ol { margin: 4px 0; }
 
-/* 区切り線。h1 の下線と役割が同じなので accent1 で揃える。
-   アクセント色で目立つため、使いどころは ../../references/component-samples.html で絞ってある */
 hr {
   border: none;
   border-top: var(--dg-border-w) solid var(--dg-accent1);
@@ -269,10 +215,6 @@ hr {
 abbr[title] { text-decoration: underline dotted; cursor: help; }
 
 ::selection { background: color-mix(in srgb, var(--dg-accent1) 26%, transparent); }
-
-/* ============================================================
-   Steps - 番号付き手順。ol.dg-steps > li
-   ============================================================ */
 
 ol.dg-steps {
   list-style: none;
@@ -290,8 +232,7 @@ ol.dg-steps > li::before {
   content: counter(steps);
   position: absolute;
   left: 0;
-  /* 本文 1 行 (16px * 1.85 = 29.6px) の中央に円を合わせる。
-     (29.6 - 24) / 2 = 2.8px から、視覚的な中心が下寄りに見える分を 1px 引く */
+
   top: 1.8px;
   width: 24px;
   height: 24px;
@@ -306,13 +247,8 @@ ol.dg-steps > li::before {
   line-height: 1;
 }
 
-/* 箱の中身は上下の余白を箱側に任せる */
 :is(.dg-card, .dg-note, .dg-sub, blockquote) > :first-child { margin-top: 0; }
 :is(.dg-card, .dg-note, .dg-sub, blockquote) > :last-child { margin-bottom: 0; }
-
-/* ============================================================
-   Cards / grid
-   ============================================================ */
 
 .dg-card {
   background: var(--dg-surface);
@@ -330,11 +266,6 @@ ol.dg-steps > li::before {
 }
 .dg-grid > .dg-card { margin: 0; }
 
-/* ============================================================
-   Note - data-label がブロックの見出しになる (注意 / 制限 / 前提 ...)
-   ============================================================ */
-
-/* 強調: 面 (--dg-surface) に枠。data-label があれば枠にまたがる teal のタグが付く */
 .dg-note {
   position: relative;
   background: var(--dg-surface);
@@ -361,7 +292,6 @@ ol.dg-steps > li::before {
   letter-spacing: .04em;
 }
 
-/* 補助情報: 沈んだ面に置く。目次 nav.dg-toc も同じ見た目で、見出しだけ固定文字 */
 .dg-sub, nav.dg-toc {
   background: var(--dg-surface-alt);
   border-radius: var(--dg-radius);
@@ -378,12 +308,8 @@ ol.dg-steps > li::before {
 .dg-sub[data-label]::before { content: attr(data-label); }
 nav.dg-toc::before { content: "目次"; }
 
-/* ============================================================
-   Table of contents
-   ============================================================ */
-
 nav.dg-toc {
-  margin: 0 0 40px; /* main の先頭に置く。用語集の上端と揃う */
+  margin: 0 0 40px;
   font-size: 14.5px;
   line-height: 1.7;
 }
@@ -406,10 +332,6 @@ nav.dg-toc ol ol { list-style: none; margin: 0; padding-left: 2.6em; }
 nav.dg-toc a { color: var(--dg-ink-body); }
 nav.dg-toc a:hover { color: var(--dg-link); }
 
-/* ============================================================
-   Chip - 並列の固有名・分類名の列挙にだけ使う
-   ============================================================ */
-
 .dg-chip {
   display: inline-block;
   border: var(--dg-border-w) solid var(--dg-border);
@@ -421,10 +343,6 @@ nav.dg-toc a:hover { color: var(--dg-link); }
   color: var(--dg-ink);
   margin: 2px 1px;
 }
-
-/* ============================================================
-   Quote - blockquote にそのまま効く。訳文は p.dg-translation、出所は cite
-   ============================================================ */
 
 blockquote {
   background: var(--dg-surface);
@@ -447,11 +365,6 @@ blockquote cite {
   color: var(--dg-muted);
   margin-top: 10px;
 }
-
-/* ============================================================
-   Tables
-   table-layout: fixed で列幅を確定させ、狭い領域でも溢れさせない
-   ============================================================ */
 
 table {
   width: 100%;
@@ -481,7 +394,6 @@ th {
 
 thead th { border-bottom: var(--dg-border-w) solid var(--dg-border); }
 
-/* 行見出し。tbody の th に自動で効く */
 tbody th {
   background: var(--dg-surface);
   font-weight: 600;
@@ -496,7 +408,6 @@ caption {
   padding-top: 8px;
 }
 
-/* 列が多い表だけ包む。表の幅は列に合わせ、この箱の中だけ横スクロールする */
 .dg-table-scroll { overflow-x: auto; margin: 16px 0; }
 .dg-table-scroll > table {
   width: max-content;
@@ -507,7 +418,6 @@ caption {
 .dg-table-scroll > table th,
 .dg-table-scroll > table td { white-space: nowrap; overflow-wrap: normal; }
 
-/* 用語集: dl > dt + dd。用語を独立した行にして列幅の問題を無くす */
 aside dl { margin: 0; }
 aside dt {
   font-weight: 700;
@@ -528,10 +438,6 @@ aside h2 {
   padding: 0;
   border-left: none;
 }
-
-/* ============================================================
-   Code
-   ============================================================ */
 
 code, kbd, samp {
   font-family: var(--dg-font-mono);
@@ -560,8 +466,6 @@ pre code {
   font-size: 13.5px;
 }
 
-/* ---- Highlight.js。有彩色は link / accent の 2 色に閉じる ---- */
-
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in,
 .hljs-type, .hljs-name, .hljs-section {
   color: var(--dg-accent1);
@@ -588,12 +492,8 @@ pre code {
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 700; }
 
-/* ---- Diff。行を span.add / .del / .ctx で包む。行頭記号は CSS が付ける ---- */
-
 pre.dg-diff { padding: 12px 0; line-height: 1.5; }
 
-/* span を改行で区切って書けるよう、行間の改行文字は折りたたむ。
-   行の中身は span 側の pre-wrap で保つ */
 pre.dg-diff code { display: block; white-space: normal; }
 
 pre.dg-diff .add,
@@ -615,11 +515,6 @@ pre.dg-diff .add::before { content: "+"; color: var(--dg-add-ink); }
 pre.dg-diff .del { background: var(--dg-del-bg); color: var(--dg-del-ink); }
 pre.dg-diff .del::before { content: "-"; color: var(--dg-del-ink); }
 pre.dg-diff .ctx::before { content: " "; }
-
-/* ============================================================
-   Figures
-   figure の直下 (figcaption 以外) が表示面。SVG の線は currentColor に追随する
-   ============================================================ */
 
 figure { margin: 24px 0; }
 
@@ -651,7 +546,6 @@ figure svg .muted { color: var(--dg-muted); }
 figure svg .accent1 { color: var(--dg-accent1); }
 figure svg .accent2 { color: var(--dg-accent2); }
 
-/* 系列の色分け。figure svg と .dg-chip の中だけ有効。c1 から順に使う */
 figure svg .c1, .dg-chip.c1 { color: var(--dg-c1); }
 figure svg .c2, .dg-chip.c2 { color: var(--dg-c2); }
 figure svg .c3, .dg-chip.c3 { color: var(--dg-c3); }
@@ -666,10 +560,6 @@ figcaption {
   margin-top: 8px;
 }
 
-/* ============================================================
-   Mermaid - pre.dg-mermaid を mermaid.js が div.dg-mermaid に置き換える
-   ============================================================ */
-
 pre.dg-mermaid { white-space: pre; }
 
 div.dg-mermaid {
@@ -683,10 +573,6 @@ div.dg-mermaid {
 }
 figure > div.dg-mermaid { margin: 0; }
 div.dg-mermaid > svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
-
-/* ============================================================
-   Copy buttons (math / mermaid)
-   ============================================================ */
 
 .dg-copy {
   font-family: var(--dg-font-mono);
@@ -706,7 +592,6 @@ div.dg-mermaid > .dg-copy { position: absolute; top: 8px; right: 8px; opacity: 0
 div.dg-mermaid:hover > .dg-copy,
 div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
 
-/* コードブロック。copy.js が pre を div.dg-code で包む */
 .dg-code { position: relative; }
 .dg-code > .dg-copy { position: absolute; top: 8px; right: 8px; opacity: 0; }
 .dg-code:hover > .dg-copy,
@@ -724,7 +609,6 @@ div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
 .dg-math-block:hover > .dg-copy,
 .dg-math-block:focus-within > .dg-copy { opacity: 1; }
 
-/* インラインは流し込みから外して数式の右に重ねる。本文の行送りを乱さない */
 .dg-math-inline { white-space: nowrap; position: relative; }
 .dg-math-inline > .dg-copy {
   position: absolute;
@@ -739,10 +623,6 @@ div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
 }
 .dg-math-inline:hover > .dg-copy,
 .dg-math-inline:focus-within > .dg-copy { opacity: 1; pointer-events: auto; }
-
-/* ============================================================
-   Theme toggle (theme.js が差し込む)
-   ============================================================ */
 
 .dg-theme-toggle {
   position: fixed;
@@ -763,10 +643,6 @@ div.dg-mermaid:focus-within > .dg-copy { opacity: 1; }
 .dg-theme-toggle:hover { background: var(--dg-surface-alt); }
 .dg-theme-toggle:focus-visible { outline: 2px solid var(--dg-accent1); outline-offset: 2px; }
 .dg-theme-toggle svg { width: 17px; height: 17px; display: block; }
-
-/* ============================================================
-   Print
-   ============================================================ */
 
 @media print {
   @page { size: A4; margin: 16mm; }

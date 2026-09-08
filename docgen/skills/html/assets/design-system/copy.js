@@ -1,6 +1,3 @@
-/* docgen - copy button helper
- * math.js / mermaid.js が使う。コードブロック (pre) には自前で copy ボタンを付ける。
- */
 window.dgCopy = (function () {
   function fallback(text) {
     var ta = document.createElement('textarea');
@@ -36,7 +33,6 @@ window.dgCopy = (function () {
     return btn;
   }
 
-  // コードブロック。pre.dg-mermaid は mermaid.js が扱う
   document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('pre:not(.dg-mermaid)').forEach(function (pre) {
       var host = document.createElement('div');

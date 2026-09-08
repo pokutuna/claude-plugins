@@ -1,8 +1,9 @@
 # デザインシステム
 
 `assets/design-system/` の CSS と JS、`scripts/` のツールを変更する人が読む資料。
-スキルの実行時には読まれない。書き手 (エージェント) への指示は `../SKILL.md` と
-`component-samples.html` が持つ。
+スキルの実行時には読まれない。書き手 (エージェント) への指示は `../SKILL.md` が持ち、
+`component-samples.html` は markup の実例を持つ。CSS と JS にはコメントを書かず、仕組みや理由はここに書く。
+エージェントは CSS と JS を `<link>` / `<script>` で参照するだけで開かないので、そこに書いた説明は読まれない。
 
 ## ファイル
 
@@ -12,12 +13,12 @@
 | --- | --- |
 | `assets/design-system/document.css` | トークンと全部品のスタイル。単独で完結する |
 | `assets/design-system/theme.js` | `data-theme` の確定と切り替えボタン。CSS の直後に同期で読み、ちらつきを防ぐ |
-| `assets/design-system/copy.js` | `pre:not(.dg-mermaid)` を `div.dg-code` で包み copy ボタンを付ける |
+| `assets/design-system/copy.js` | `pre:not(.dg-mermaid)` を `div.dg-code` で包み copy ボタンを付ける。math.js / mermaid.js もこのヘルパーを使う |
 | `assets/design-system/anchor.js` | `main` 内の h2 / h3 に `#` アンカーと、無ければ文面由来の `id` を付ける |
-| `assets/design-system/math.js` | MathJax の設定 (SVG 出力) と数式の copy ボタン。MathJax より前に読む |
-| `assets/design-system/mermaid.js` | Mermaid のテーマ設定、切替時の再描画、原文の copy ボタン。mermaid より後に読む |
+| `assets/design-system/math.js` | MathJax の設定 (SVG 出力) と数式の copy ボタン。MathJax より前に読む。コピーはデリミタ込み (`$...$` / `$$...$$`) で、貼り付け先でそのまま数式になる |
+| `assets/design-system/mermaid.js` | `pre.dg-mermaid` を描画して `div.dg-mermaid` に置き換える。原文を保持し、テーマ切替時に描き直す。mermaid より後に読む |
 | `assets/template.html` | 骨格と `<head>` の読み込み順。書き手はこれをコピーして始める |
-| `references/component-samples.html` | 全部品の見本。マークアップの正であり、描画テストページでもある。`<head>` は `../assets/` を参照する |
+| `references/component-samples.html` | 全部品の markup の実例と描画テストページ。使い分けは SKILL.md にあり、ここには書かない。`<head>` は `../assets/` を参照する |
 | `references/component-samples.{light,dark}.png` | 見本ページの描画結果。現在の見た目の記録 |
 
 ## 全体の方針
@@ -42,6 +43,8 @@
 - ダークの背景と面のコントラストは 1.15:1 では足りず、ブロックが背景に沈む。
   背景 `#1A1D22`、面 `#232830`、枠 `#4A5262` で段差をつけてある
 - 系列色は Okabe-Ito 系で揃え、ダークは明るい変種にする
+- accent1 (teal) は divider・ラベル・番号・コードのキーワード、accent2 (amber) は強調 (`em`) とコードの文字列・数値。
+  `hr` は h1 の下線と役割が同じなので accent1。Highlight.js の配色も link / accent の 2 色に閉じる
 
 色のトークンは `light-dark(ライト, ダーク)` で 1 箇所に書く。どちらの値を使うかは `color-scheme`
 が決め、`data-theme` が無ければ `light dark` (OS 設定に従う)、あれば `light` / `dark` に固定する。
@@ -60,7 +63,26 @@
   main を中心に対称にはみ出す設計では、main が左寄りなので左端に阻まれ 1280px で片側 120px しか
   広がらない。margin-left は main の左端の画面座標から逆算する。`figure` 等の margin に負けないよう
   `.dg-page .dg-wide` で特異性を上げている。1000px 以下では無効
-- `pre.dg-diff code` は `white-space: normal`。span を改行で区切って書いても空行が入らないようにする
+- `pre.dg-diff code` は `white-space: normal`。span を改行で区切って書いても空行が入らないようにする。
+  行の中身は span 側の `pre-wrap` で保ち、行頭の `+` / `-` は CSS の `::before` が付ける
+- `.dg-wide` の上下の余白は margin ではなく透明な border。背景は境界ボックスまでしか塗られないので、
+  margin だと隣り合う `.dg-wide` の隙間から用語集が覗く。border は margin と違い相殺されない
+- `.dg-steps` の番号の円は本文 1 行 (16px × 1.85 = 29.6px) の中央に合わせる。(29.6 − 24) / 2 = 2.8px から、
+  視覚的な中心が下寄りに見える分を 1px 引いている
+- `.dg-sub` と `nav.dg-toc` は同じ見た目で、目次は見出しだけ固定文字 (`::before` の「目次」)
+- `table` は `table-layout: fixed` で列幅を確定させ、狭い領域でも溢れさせない
+- ヘッダーは固定のテーマボタンと重ならないよう `padding-right: 40px`
+- mermaid.js は `document.fonts.ready` を待ってから描画する。Web フォント確定前に測ると文字が箱から溢れる
+- theme.js は保存値がなければ OS 設定に従う。CSS の直後に同期で読み、描画前に `data-theme` を確定させる
+- `figure > :not(figcaption)` が表示面。図の中身が SVG でも画像でも Mermaid でも同じ枠と余白になり、
+  部品ごとの指定が要らない。SVG の線と文字は `currentColor` に追随するので、書き手が色を指定しなければ
+  テーマに応じた本文色で描かれる。系列色のクラスは `figure svg` と `.dg-chip` の中だけで効く
+- `.dg-note[data-label]` は `::before` の `content: attr(data-label)` で見出しを出し、属性が無ければ
+  見出しごと現れない。`.dg-sub` も同じ仕組みで、`nav.dg-toc` だけは固定文字の「目次」を出す
+- `.dg-math-inline` の copy ボタンは `position: absolute` で流し込みから外し、数式の右に重ねる。
+  行の中に置くと本文の行送りが乱れる
+- 用語集 `aside` があれば 2 カラム、無ければ 1 カラム。1000px 以下と印刷では常に 1 カラムになり、
+  用語集は本文の後ろに続く。`.dg-wide` もそこでは無効になる
 
 ## ツール
 
@@ -88,10 +110,13 @@
   描画確認は `html` の手順に含めない
 - 部品を追加したら見本ページにも実例を置く。見本にない部品は動作が確認されないまま壊れる
   (`.dg-table-scroll` がこれに当たる)
-- 見本ページは短く保つ。エージェントは見本を部分的にではなく全文読むため、分量がそのまま
-  文書 1 本あたりのコストになる。各部品は「いつ使うか」の 1 文とマークアップだけにし、仕組みや
-  理由はここに書く。骨格は template.html に任せて再掲せず、JS が自動で付ける要素 (テーマボタン、
-  copy ボタン、アンカー、`--offline` の Embedded 行) も載せない
+- 見本ページは markup だけにする。部品をいつ使うかは SKILL.md に書き、見本には書かない。
+  仕組みや理由はここに書く。骨格は template.html に任せて
+  再掲せず、JS が自動で付ける要素 (テーマボタン、copy ボタン、アンカー、`--offline` の Embedded 行) も
+  載せない。`<symbol>` と `<use>` で図をまとめない。`figure svg .muted` などの規則は参照元の位置で評価され
+  `<use>` で描いた図形に効かず、書き手が真似する markup でもない
+- 部品を足したら SKILL.md の「部品」の一覧にも 1 行足す。エージェントは SKILL.md と template.html を
+  必ず読み、見本は必要なときにしか読まない
 - 見本の `.dg-table-scroll` には `.dg-wide` を付けない。幅が足りるとスクロールが起きず、
   横スクロールする表という部品の役割を示せなくなる。部品としては組み合わせられる
 - 見本が 400 行を超えるようなら、h2 の `id` で節を切り出す script を検討する。

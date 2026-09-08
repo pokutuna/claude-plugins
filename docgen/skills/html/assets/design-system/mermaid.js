@@ -1,8 +1,3 @@
-/* docgen - Mermaid レンダリングと原文コピー
- * mermaid 本体より後に読み込む。
- * 対象は <pre class="dg-mermaid">...</pre>。描画後は div.dg-mermaid に置き換わる。
- * 原文を保持し、テーマ切り替え時に描き直す。
- */
 (function () {
   if (!window.mermaid) return;
 
@@ -98,7 +93,6 @@
 
   function start() {
     collect();
-    // Web フォント確定前に測ると文字が箱から溢れるので、フォントを待つ
     var ready = (document.fonts && document.fonts.ready) || Promise.resolve();
     ready.then(render, render);
   }

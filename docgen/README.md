@@ -14,8 +14,9 @@
 
 ## デザインシステム
 
-全部品の見本が [`component-samples.html`](skills/html/references/component-samples.html) にあり、
-マークアップの正であり描画テストページでもある。設計意図と運用ルールは
+部品の使い分けは [`html` の SKILL.md](skills/html/SKILL.md) にある。
+全部品のマークアップの実例は [`component-samples.html`](skills/html/references/component-samples.html) にあり、
+描画テストページでもある。実装の詳細と運用ルールは
 [`DESIGN_SYSTEM.md`](skills/html/references/DESIGN_SYSTEM.md) にまとめてある。
 
 | ![light](skills/html/references/component-samples.light.png) | ![dark](skills/html/references/component-samples.dark.png) |

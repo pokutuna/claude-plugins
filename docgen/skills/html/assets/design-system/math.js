@@ -1,8 +1,3 @@
-/* docgen - MathJax 設定と LaTeX コピー
- * MathJax 本体 (tex-svg-full.js) より先に読み込む。
- * SVG 出力なので Web フォントの動的ロードが無く、バンドル後もオフラインで動く。
- * コピーはデリミタ込み ($...$ / $$...$$)。貼り付け先でそのまま数式になる。
- */
 (function () {
   function attach(item) {
     var root = item.typesetRoot;
