@@ -145,6 +145,12 @@
       "description": "日本語の文章規範と説明ドキュメントの構成、単一ファイル HTML のデザインシステム",
       "source": "./docgen",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/docgen"
+    },
+    {
+      "name": "progressive-outlining",
+      "description": "Progressive Outlining (Andrew Ng): refine an outline stage by stage with the user in a working file, or autonomously with a critic SubAgent, before writing prose or a design doc",
+      "source": "./progressive-outlining",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/progressive-outlining"
     }
   ]
 }

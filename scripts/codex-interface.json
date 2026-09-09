@@ -169,5 +169,15 @@
     "capabilities": ["Read"],
     "defaultPrompt": ["Get the transcript from this Zoom recording"],
     "brandColor": "#0B5CFF"
+  },
+  "progressive-outlining": {
+    "displayName": "Progressive Outlining",
+    "shortDescription": "Outline first, then write or design",
+    "longDescription": "Andrew Ng's Progressive Outlining as a workflow: agree on a brief, pick an outline from several candidates, refine it one level at a time in a shared working file, and only then write the prose or finish the design document.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Help me write this article with progressive outlining"],
+    "brandColor": "#7C3AED"
   }
 }

@@ -59,3 +59,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [x-research](./x-research/) | Research X (Twitter) via the xAI Grok API x_search tool and answer with citation-verified quotes and links |
 | [runbook](./runbook/) | Create and review runbooks that run top to bottom without judgment from whoever executes them |
 | [docgen](./docgen/) | Write text deliverables — Japanese writing conventions, explanatory structure, and a single-file HTML design system |
+| [progressive-outlining](./progressive-outlining/) | Progressive Outlining (Andrew Ng) — refine an outline stage by stage before writing prose or a design doc, with the user or a critic SubAgent |
