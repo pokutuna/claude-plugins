@@ -1,6 +1,6 @@
 {
   "name": "progressive-outlining",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "アウトラインから段階的に成果物へ近づける Progressive Outlining (Andrew Ng) を、作業ファイル上の往復と SubAgent による自走で行う。文章向けと設計文書向けの 2 skill",
   "author": {
     "name": "pokutuna"
