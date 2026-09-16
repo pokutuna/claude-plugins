@@ -60,3 +60,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [runbook](./runbook/) | Create and review runbooks that run top to bottom without judgment from whoever executes them |
 | [docgen](./docgen/) | Write text deliverables — Japanese writing conventions, explanatory structure, and a single-file HTML design system |
 | [progressive-outlining](./progressive-outlining/) | Progressive Outlining (Andrew Ng) — refine an outline stage by stage before writing prose or a design doc, with the user or a critic SubAgent |
+| [test-quality](./test-quality/) | Judge the value of tests and prune the low-value ones that coding agents tend to generate |

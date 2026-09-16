@@ -151,6 +151,12 @@
       "description": "Progressive Outlining (Andrew Ng): refine an outline stage by stage with the user in a working file, or autonomously with a critic SubAgent, before writing prose or a design doc",
       "source": "./progressive-outlining",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/progressive-outlining"
+    },
+    {
+      "name": "test-quality",
+      "description": "Judge the value of tests and prune the low-value ones — mirror-of-implementation, always-green, and coverage-filling tests that coding agents tend to generate",
+      "source": "./test-quality",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/test-quality"
     }
   ]
 }

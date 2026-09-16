@@ -1,0 +1,17 @@
+{
+  "name": "test-quality",
+  "version": "0.1.0",
+  "description": "テストの価値を判定して低価値なテストを削る。実装の写経・常に通る・網羅のためのテストなど、コーディングエージェントが生成しがちな類型を扱う",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "test",
+    "testing",
+    "test-quality",
+    "refactoring",
+    "mutation-testing",
+    "code-coverage"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/test-quality"
+}
