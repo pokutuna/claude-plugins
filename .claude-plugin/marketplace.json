@@ -154,7 +154,7 @@
     },
     {
       "name": "test-quality",
-      "description": "Judge the value of tests and prune the low-value ones — mirror-of-implementation, always-green, and coverage-filling tests that coding agents tend to generate",
+      "description": "Write valuable tests and prune low-value ones that coding agents tend to generate",
       "source": "./test-quality",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/test-quality"
     }

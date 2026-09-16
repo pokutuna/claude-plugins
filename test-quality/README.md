@@ -13,8 +13,8 @@
 
 | Skill | Description |
 |-------|-------------|
-| [`prune-tests`](skills/prune-tests/SKILL.md) | 既存スイートから低価値なテストを見分け、明らかなものは削除し、判断が要るものは提案する |
-| [`test-policy`](skills/test-policy/SKILL.md) | テストを書く時点で制約と判断基準を与える |
+| [`test-policy`](skills/test-policy/SKILL.md) | 価値のあるテストを書く方針 |
+| [`prune-tests`](skills/prune-tests/SKILL.md) | 低価値なテストを見分けて削除・集約する |
 
 ## Installation
 
