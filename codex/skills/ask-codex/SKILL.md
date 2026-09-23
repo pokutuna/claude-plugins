@@ -33,13 +33,13 @@ Codex は Auto 相当の次のオプションで必ず起動する。
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<上記 RESULT_FILE>" "<上記 TRANSCRIPT_FILE>" \
   --sandbox workspace-write -c 'approval_policy="on-request"' \
-  --model gpt-5.6-luna -c 'model_reasoning_effort="xhigh"' \
+  --model gpt-6-luna -c 'model_reasoning_effort="xhigh"' \
   --color never --json -C "$PWD" "<prompt>"
 ```
 
 - `--sandbox workspace-write`: ワークスペース内のファイル編集とコマンド実行を許可する
 - `approval_policy="on-request"`: ワークスペース外への書き込みやネットワークアクセスなど、sandbox 外の操作だけで承認を求める
-- `--model gpt-5.6-luna`: 使用モデルの既定値
+- `--model gpt-6-luna`: 使用モデルの既定値
 - `model_reasoning_effort="xhigh"`: GPT-5.6 Luna の reasoning effort の既定値
 - `--color never`: Claude Code に渡す出力から ANSI エスケープシーケンスを除く
 - `--output-last-message`: 最終回答を `RESULT_FILE` に保存する
@@ -56,10 +56,10 @@ $ARGUMENTS
 ## Arguments
 
 - **レビュー内容**: `$ARGUMENTS` と会話コンテキストから、対象と観点を判断する
-- **オプション**: `--model <model>` と `--effort <level>` で Codex CLI に渡すモデルと reasoning effort を指定する。既定値は `gpt-5.6-luna` と `xhigh`。利用可能な effort はモデルにより異なる
+- **オプション**: `--model <model>` と `--effort <level>` で Codex CLI に渡すモデルと reasoning effort を指定する。既定値は `gpt-6-luna` と `xhigh`。利用可能な effort はモデルにより異なる
 - **確認スキップ**: `-y` / `--yes`
 
-難しい問題、深い設計検討、複雑なデバッグでは、`gpt-5.6-sol` と `high` を案内する。例: `/ask-codex <依頼> --model gpt-5.6-sol --effort high`。既定の Luna Ultra より適切そうな場合は、この指定を提案してよい。
+難しい問題、深い設計検討、複雑なデバッグでは、`gpt-6-sol` と `high` を案内する。例: `/ask-codex <依頼> --model gpt-6-sol --effort high`。既定の Luna Ultra より適切そうな場合は、この指定を提案してよい。
 
 ## Instructions
 
@@ -83,7 +83,7 @@ $ARGUMENTS
 
 ### 3. Run Codex
 
-モデルと reasoning effort は、既定で `--model "gpt-5.6-luna" -c 'model_reasoning_effort="xhigh"'` を追加する。`--model <model>` または `--effort <level>` が指定されたときは、それぞれの既定値を置き換える。`-y` / `--yes`、`--model`、`--effort` 指定は Codex への依頼本文に含めない。
+モデルと reasoning effort は、既定で `--model "gpt-6-luna" -c 'model_reasoning_effort="xhigh"'` を追加する。`--model <model>` または `--effort <level>` が指定されたときは、それぞれの既定値を置き換える。`-y` / `--yes`、`--model`、`--effort` 指定は Codex への依頼本文に含めない。
 
 冒頭で確定した `RESULT_FILE` と `TRANSCRIPT_FILE` をそのまま wrapper script に文字列で指定する。wrapper は codex exec をプロセスグループから切り離して background 起動し、codex の PID を1行出力してすぐに戻る。起動コマンド自体は数秒で返るため、通常の Bash ツール timeout で問題ない。
 
@@ -92,7 +92,7 @@ $ARGUMENTS
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_FILE>" "<冒頭で確定した TRANSCRIPT_FILE>" \
   --sandbox workspace-write -c 'approval_policy="on-request"' \
-  --model "<model: 既定 gpt-5.6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
+  --model "<model: 既定 gpt-6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
   --color never --json -C "$PWD" \
   "$(cat <<'PROMPT'
 ワークスペース内では、自律的にファイルを読み取り、必要なコード検索・git コマンド・テスト・編集を行ってください。ワークスペース外への書き込み、ネットワークアクセス、破壊的操作が必要な場合は、承認を求めてください。
@@ -125,6 +125,6 @@ Codex CLI 自体が中断・クラッシュして最終回答が保存されな�
 ```
 /ask-codex staged -y
 /ask-codex この設計方針についてレビューして
-/ask-codex src/auth.ts --model gpt-5.6-luna --effort max
+/ask-codex src/auth.ts --model gpt-6-luna --effort max
 /ask-codex PR のエラーハンドリングに注目して
 ```

@@ -39,7 +39,7 @@ $ARGUMENTS
   - `base <branch>` → `--base <branch>` (指定ブランチとの差分)
   - `commit <sha>` → `--commit <sha>` (指定コミットの変更)
 - **レビュー観点**: 対象の後ろにある自然言語。渡し方は下の制約に従う
-- **オプション**: `--model <model>` と `--effort <level>`。既定値は `gpt-5.6-luna` と `xhigh`
+- **オプション**: `--model <model>` と `--effort <level>`。既定値は `gpt-6-luna` と `xhigh`
 - **確認スキップ**: `-y` / `--yes`
 
 `-y` / `--yes`、`--model`、`--effort` はレビュー観点の本文に含めない。
@@ -98,7 +98,7 @@ wrapper は codex exec をプロセスグループから切り離して backgrou
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_FILE>" "<冒頭で確定した TRANSCRIPT_FILE>" \
   --sandbox read-only --ignore-user-config -c 'approval_policy="never"' \
-  --model "<model: 既定 gpt-5.6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
+  --model "<model: 既定 gpt-6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
   --color never --json -C "$PWD" \
   review --uncommitted
 ```
@@ -108,7 +108,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_F
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_FILE>" "<冒頭で確定した TRANSCRIPT_FILE>" \
   --sandbox read-only --ignore-user-config -c 'approval_policy="never"' \
-  --model "<model: 既定 gpt-5.6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
+  --model "<model: 既定 gpt-6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
   --color never --json -C "$PWD" \
   review "$(cat <<'PROMPT'
 <レビュー範囲の指示>
@@ -157,5 +157,5 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/wait-codex.sh "<冒頭で確定した TRANSCR
 /codex-review base main                            # main との差分を --base main でレビュー
 /codex-review commit abc1234                       # 特定コミットを --commit でレビュー
 /codex-review base main セキュリティ観点で          # 観点あり → PROMPT に範囲と観点を記述
-/codex-review --model gpt-5.6-sol --effort high    # モデル・effort 指定
+/codex-review --model gpt-6-sol --effort high    # モデル・effort 指定
 ```
