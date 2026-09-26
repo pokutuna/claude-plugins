@@ -16,9 +16,11 @@ Requires macOS with Things 3 installed.
 All commands use a single executable script. It has a shebang so **always execute it directly** — never prefix with `osascript` or `node`:
 
 ```
-${CLAUDE_PLUGIN_ROOT}/skills/things-app/scripts/things.js
+${CLAUDE_PLUGIN_ROOT}/skills/things-app/scripts/things.js --help
 ${CLAUDE_PLUGIN_ROOT}/skills/things-app/scripts/things.js <command> [options]
 ```
+
+`--help` / `-h` prints the full command reference and never executes anything, even after a command (`create --help` is safe). Unknown options and missing arguments fail with exit 1 instead of being treated as a title.
 
 ## Typical Workflows
 

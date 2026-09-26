@@ -260,6 +260,7 @@ function parseArgs(argv) {
     today: undefined,
     when: undefined,
     due: undefined,
+    help: false,
   };
   const positional = [];
 
@@ -307,11 +308,27 @@ function parseArgs(argv) {
       case "--due":
         opts.due = argv[++i];
         break;
+      case "--help":
+      case "-h":
+        opts.help = true;
+        break;
       default:
+        if (argv[i].charAt(0) === "-") {
+          throw new Error("Unknown option: " + argv[i] + "\n\n" + usage());
+        }
         positional.push(argv[i]);
     }
   }
   return { cmd, positional, opts };
+}
+
+function requireArg(cmd, value, label) {
+  if (value === undefined || value === "") {
+    throw new Error(
+      "Missing <" + label + "> for '" + cmd + "'.\n\n" + usage(),
+    );
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -566,7 +583,8 @@ function cmdDelete(taskId) {
 
 function usage() {
   return [
-    "Usage: osascript -l JavaScript things.js <command> [options]",
+    "Usage: things.js <command> [options]",
+    "       things.js --help | -h",
     "",
     "Commands:",
     "  today       [--done] [--offset N] [--limit N]",
@@ -584,6 +602,9 @@ function usage() {
     "  cancel      <task-id>",
     "  reopen      <task-id>",
     "  delete      <task-id>",
+    "",
+    "Options:",
+    "  --help, -h  Show this help (works with any command; never runs it)",
   ].join("\n");
 }
 
@@ -593,6 +614,9 @@ function usage() {
 
 function run(argv) {
   const { cmd, positional, opts } = parseArgs(argv);
+  if (opts.help || cmd === "help" || cmd === "--help" || cmd === "-h") {
+    return usage();
+  }
 
   switch (cmd) {
     case "today":
@@ -600,26 +624,26 @@ function run(argv) {
     case "inbox":
       return cmdList(LIST_INBOX, "Inbox", opts);
     case "project":
-      return cmdProject(positional[0], opts);
+      return cmdProject(requireArg(cmd, positional[0], "name"), opts);
     case "area":
-      return cmdArea(positional[0], opts);
+      return cmdArea(requireArg(cmd, positional[0], "name"), opts);
     case "detail":
-      return cmdDetail(positional[0]);
+      return cmdDetail(requireArg(cmd, positional[0], "name-or-id"));
     case "projects":
       return cmdProjects();
     case "create":
-      return cmdCreate(positional[0], opts);
+      return cmdCreate(requireArg(cmd, positional[0], "title"), opts);
     case "update":
-      return cmdUpdate(positional[0], opts);
+      return cmdUpdate(requireArg(cmd, positional[0], "task-id"), opts);
     case "complete":
-      return cmdSetStatus(positional[0], "completed");
+      return cmdSetStatus(requireArg(cmd, positional[0], "task-id"), "completed");
     case "cancel":
-      return cmdSetStatus(positional[0], "canceled");
+      return cmdSetStatus(requireArg(cmd, positional[0], "task-id"), "canceled");
     case "reopen":
-      return cmdSetStatus(positional[0], "open");
+      return cmdSetStatus(requireArg(cmd, positional[0], "task-id"), "open");
     case "delete":
-      return cmdDelete(positional[0]);
+      return cmdDelete(requireArg(cmd, positional[0], "task-id"));
     default:
-      return usage();
+      throw new Error("Unknown command: " + cmd + "\n\n" + usage());
   }
 }
