@@ -61,3 +61,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [docgen](./docgen/) | Write text deliverables — Japanese writing conventions, explanatory structure, and a single-file HTML design system |
 | [progressive-outlining](./progressive-outlining/) | Progressive Outlining (Andrew Ng) — refine an outline stage by stage before writing prose or a design doc, with the user or a critic SubAgent |
 | [test-quality](./test-quality/) | Write valuable tests and prune low-value ones that coding agents tend to generate |
+| [bunch](./bunch/) | Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task |

@@ -179,5 +179,15 @@
     "capabilities": ["Read", "Write"],
     "defaultPrompt": ["Help me write this article with progressive outlining"],
     "brandColor": "#7C3AED"
+  },
+  "bunch": {
+    "displayName": "bunch",
+    "shortDescription": "Work through a large task in logged stages",
+    "longDescription": "Split a large or exploratory task into stages. A Bunch Document holds the goal, rules, task list and timeline; each task gets a Task Document with its goal, done-when conditions, context and work log, so the work keeps its course and stays easy to follow.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Let's proceed as a bunch"],
+    "brandColor": "#7C3AED"
   }
 }

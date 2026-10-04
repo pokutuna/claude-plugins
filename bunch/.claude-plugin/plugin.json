@@ -1,0 +1,14 @@
+{
+  "name": "bunch",
+  "version": "0.1.0",
+  "description": "Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task.",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "planning",
+    "task-management",
+    "progress-log"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/bunch"
+}
