@@ -1,0 +1,31 @@
+{
+  "name": "test-quality",
+  "version": "0.1.1",
+  "description": "価値のあるテストを書き、低価値なテストを削るための方針",
+  "author": {
+    "name": "pokutuna"
+  },
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/test-quality",
+  "keywords": [
+    "testing",
+    "test-quality"
+  ],
+  "repository": "https://github.com/pokutuna/claude-plugins",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Test Quality",
+    "shortDescription": "Write and prune valuable tests",
+    "longDescription": "価値のあるテストを書き、低価値なテストを見分けて削除・集約するための方針とワークフロー。",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "このテストは必要か判定して"
+    ],
+    "brandColor": "#EA4335"
+  }
+}
