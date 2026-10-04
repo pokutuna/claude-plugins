@@ -70,3 +70,4 @@ description: Split a multi-step or exploratory task and work through it in stage
 
 - Bunch Document の `{{END: ...}}` を埋めて置き換える
 - ユーザに報告をする
+- 報告後にユーザの指摘を受けて続ける場合は手順 4 に戻る
