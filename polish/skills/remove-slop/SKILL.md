@@ -9,7 +9,6 @@ allowed-tools:
 # Remove AI code slop
 
 Check the diff against the default branch, and remove all AI generated slop introduced in this branch.
-Find the default branch with `git symbolic-ref --short refs/remotes/origin/HEAD`; if that fails, use `main` or `master`, whichever exists.
 
 This includes:
 - Extra comments that a human wouldn't add or is inconsistent with the rest of the file
