@@ -1,7 +1,7 @@
 {
   "name": "polish",
   "version": "0.1.2",
-  "description": "AI が書いたテキストやコードを仕上げる。冗長なコード、制作時の会話の名残、skill の不要な記述を取り除く",
+  "description": "テキストや成果物を修正する skill 集",
   "author": {
     "name": "pokutuna"
   },
@@ -17,8 +17,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "polish",
-    "shortDescription": "Polish text and code written by AI",
-    "longDescription": "Polish text and code written by AI before handing it off: remove code slop such as needless comments and defensive checks, and rewrite documents so readers who never saw the conversation that produced them can follow, and trim SKILL.md files down to the lines that change behavior.",
+    "shortDescription": "Skills that revise text and deliverables",
+    "longDescription": "A collection of skills that revise text and other deliverables before you hand them off: remove what readers do not need, and rewrite the rest so they can follow it.",
     "developerName": "pokutuna",
     "category": "Productivity",
     "capabilities": [

@@ -62,4 +62,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [progressive-outlining](./progressive-outlining/) | Progressive Outlining (Andrew Ng) — refine an outline stage by stage before writing prose or a design doc, with the user or a critic SubAgent |
 | [test-quality](./test-quality/) | Write valuable tests and prune low-value ones that coding agents tend to generate |
 | [bunch](./bunch/) | Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task |
-| [polish](./polish/) | Polish text and code written by AI — remove code slop, leftovers from the conversation that produced it, and needless lines in skills |
+| [polish](./polish/) | Skills that revise text and other deliverables |

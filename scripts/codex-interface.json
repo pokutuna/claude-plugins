@@ -192,8 +192,8 @@
   },
   "polish": {
     "displayName": "polish",
-    "shortDescription": "Polish text and code written by AI",
-    "longDescription": "Polish text and code written by AI before handing it off: remove code slop such as needless comments and defensive checks, and rewrite documents so readers who never saw the conversation that produced them can follow, and trim SKILL.md files down to the lines that change behavior.",
+    "shortDescription": "Skills that revise text and deliverables",
+    "longDescription": "A collection of skills that revise text and other deliverables before you hand them off: remove what readers do not need, and rewrite the rest so they can follow it.",
     "developerName": "pokutuna",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],

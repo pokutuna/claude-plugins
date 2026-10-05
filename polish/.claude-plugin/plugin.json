@@ -1,7 +1,7 @@
 {
   "name": "polish",
   "version": "0.1.2",
-  "description": "AI が書いたテキストやコードを仕上げる。冗長なコード、制作時の会話の名残、skill の不要な記述を取り除く",
+  "description": "テキストや成果物を修正する skill 集",
   "author": {
     "name": "pokutuna"
   },

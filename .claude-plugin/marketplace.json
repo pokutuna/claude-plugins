@@ -166,7 +166,7 @@
     },
     {
       "name": "polish",
-      "description": "Polish text and code written by AI: remove code slop, leftovers from the conversation that produced it, and needless lines in skills",
+      "description": "Skills that revise text and other deliverables",
       "source": "./polish",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/polish"
     }
