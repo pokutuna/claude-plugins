@@ -1,0 +1,15 @@
+{
+  "name": "polish",
+  "version": "0.1.0",
+  "description": "AI が書いたテキストやコードを仕上げる。冗長なコード、制作時の会話の名残、skill の不要な記述を取り除く",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "writing",
+    "rewrite",
+    "cleanup",
+    "ai-slop"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/polish"
+}

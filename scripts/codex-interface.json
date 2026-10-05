@@ -189,5 +189,15 @@
     "capabilities": ["Read", "Write"],
     "defaultPrompt": ["Let's proceed as a bunch"],
     "brandColor": "#7C3AED"
+  },
+  "polish": {
+    "displayName": "polish",
+    "shortDescription": "Polish text and code written by AI",
+    "longDescription": "Polish text and code written by AI before handing it off: remove code slop such as needless comments and defensive checks, and rewrite documents so readers who never saw the conversation that produced them can follow, and trim SKILL.md files down to the lines that change behavior.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Remove AI slop from this branch"],
+    "brandColor": "#B8860B"
   }
 }

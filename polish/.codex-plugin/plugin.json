@@ -1,0 +1,33 @@
+{
+  "name": "polish",
+  "version": "0.1.0",
+  "description": "AI が書いたテキストやコードを仕上げる。冗長なコード、制作時の会話の名残、skill の不要な記述を取り除く",
+  "author": {
+    "name": "pokutuna"
+  },
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/polish",
+  "keywords": [
+    "writing",
+    "rewrite",
+    "cleanup",
+    "ai-slop"
+  ],
+  "repository": "https://github.com/pokutuna/claude-plugins",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "polish",
+    "shortDescription": "Polish text and code written by AI",
+    "longDescription": "Polish text and code written by AI before handing it off: remove code slop such as needless comments and defensive checks, and rewrite documents so readers who never saw the conversation that produced them can follow, and trim SKILL.md files down to the lines that change behavior.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Remove AI slop from this branch"
+    ],
+    "brandColor": "#B8860B"
+  }
+}
