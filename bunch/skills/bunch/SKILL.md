@@ -33,7 +33,8 @@ description: Split a multi-step or exploratory task and work through it in stage
 `${CLAUDE_PLUGIN_ROOT}/skills/bunch/assets/bunch-template.md`
 
 - `<yyyymmdd>-<title>.md` という名前で作業ディレクトリに作成する
-  - ただしプロジェクトの慣習・ユーザの指示があるならその配置場所に従うこと
+  - ただしプロジェクトの慣習・ユーザの指示があるならその配置場所に従う
+  - 例: `20251209-oauth-login.md`, `experiments/012-tokenizer/20260407-vocab.md`
 - テンプレートの `{{INIT: ...}}` を埋めて置き換える、テンプレート中の指示に従ってタスクリストを作成する
 
 ## 3. Task Document の作成と実行
@@ -41,11 +42,11 @@ description: Split a multi-step or exploratory task and work through it in stage
 各タスクに**着手する際**に以下のテンプレートを元に Task Document を準備する
 `${CLAUDE_PLUGIN_ROOT}/skills/bunch/assets/task-template.md`
 
-- Bunch Document の横に `<yyyymmdd>-<title>/<NN-slug>.md` を作成する
-  - ただしプロジェクトの慣習・ユーザの指示があるならその配置場所に従うこと
+- Bunch Document の横に `<yyyymmdd>-<title>/<NN-slug>.md` を作成し、タスクリストのマーカーを `[~]` にする
+  - ただしプロジェクトの慣習・ユーザの指示があるならその配置場所に従う
 - テンプレートの `{{INIT: ...}}` を埋めて置き換える
 - タスクを `bunch:task` Skill に従って進める
-  - タスクリストのマーカーを `[~]` に更新して開始する。着手は Timeline に書かない
+  - 着手は Timeline に書かない
   - 独立したタスクは SubAgent で並列実行してよい
     - SubAgent には「`bunch:task` Skill を読み、<Task Document のパス> を進める」と指示する
 
@@ -60,8 +61,9 @@ description: Split a multi-step or exploratory task and work through it in stage
     - 大きすぎる軌道修正は `[-]` にして新しいタスクを作り切り直す
 - 結果を踏まえて Bunch Document, タスクリストを見直す
   - もし方針が変わったなら Approach & Rules を書き換える
-  - 必要に応じてタスクを、追加する、分割する、並べ替える、`[?]` のタスクを具体化する
+  - 必要に応じてタスクを、追加する、分割する、並べ替える
     - 追加する際は番号をインクリメントしリストに挿入する、番号は振り直さない
+    - `[?]` まで進んだら対応を決めてマーカーを更新し、必要ならタスクを具体化して追加する
   - 前提に大きな誤りがあり Bunch の目的が達成できない場合は、手順 5 の完了に進み、ユーザに仕切り直しを依頼する
 - Bunch Document の Timeline に追記する
 - 次に着手するタスクを決めて手順3へ / Bunch のタスクが完了すれば手順5へ

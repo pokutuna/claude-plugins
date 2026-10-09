@@ -2,7 +2,7 @@
 # {{INIT: タイトル}}
 
 ID: {{INIT: ID (NN-slug)}}
-Bunch: {{INIT: 元の Bunch Document への相対パス}}
+Bunch: {{INIT: この Task Document から Bunch Document への相対パス}}
 
 ## Goal
 
