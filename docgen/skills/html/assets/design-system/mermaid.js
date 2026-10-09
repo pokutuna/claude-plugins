@@ -12,8 +12,17 @@
   function config() {
     var css = getComputedStyle(document.documentElement);
     var v = function (n) { return css.getPropertyValue(n).trim(); };
-    var surface = v('--dg-surface'), alt = v('--dg-surface-alt');
-    var ink = v('--dg-ink-body'), border = v('--dg-border');
+    // Mermaid parses colors itself and rejects light-dark(), so resolve tokens to rgb() first
+    var probe = document.createElement('span');
+    probe.style.display = 'none';
+    document.body.appendChild(probe);
+    var color = function (n) {
+      probe.style.color = 'var(' + n + ')';
+      return getComputedStyle(probe).color;
+    };
+    var surface = color('--dg-surface'), alt = color('--dg-surface-alt');
+    var ink = color('--dg-ink-body'), border = color('--dg-border');
+    probe.remove();
     return {
       startOnLoad: false,
       securityLevel: 'strict',
@@ -74,9 +83,10 @@
 
   function render() {
     if (!blocks.length) return;
-    mermaid.initialize(config());
+    // Run initialize inside the chain so a synchronous throw also falls back to the source
+    var ready = Promise.resolve().then(function () { mermaid.initialize(config()); });
     blocks.forEach(function (b) {
-      mermaid.render(b.id, b.src).then(function (res) {
+      ready.then(function () { return mermaid.render(b.id, b.src); }).then(function (res) {
         b.host.innerHTML = res.svg;
         if (window.dgCopy) {
           b.host.appendChild(window.dgCopy.button(b.src, 'Mermaid 記法をコピー'));
