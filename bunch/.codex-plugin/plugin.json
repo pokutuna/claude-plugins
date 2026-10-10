@@ -1,6 +1,6 @@
 {
   "name": "bunch",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task.",
   "author": {
     "name": "pokutuna"
