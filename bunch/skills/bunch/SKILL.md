@@ -1,6 +1,8 @@
 ---
 name: bunch
 description: Split a multi-step or exploratory task and work through it in stages, logging progress and course corrections in a bunch document. Use when the user wants to go step by step or resume a bunch.
+allowed-tools:
+  - Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/log.sh *)
 ---
 
 # Bunch Task
@@ -25,7 +27,7 @@ description: Split a multi-step or exploratory task and work through it in stage
 - 計画, 準備, 実行, 評価 に分けて順番に行う実験
 
 短時間で終わる小さい作業にはこの Bunch Skill の方法を取らない
-またプロジェクトを1つ完了させるような大きすぎるものは複数の Bunch に分割してさらに段階的に進める
+また大きすぎるものは複数の Bunch に分割してさらに段階的に進める
 
 ## 2. Bunch Document の作成と計画
 
@@ -66,6 +68,15 @@ description: Split a multi-step or exploratory task and work through it in stage
     - `[?]` まで進んだら対応を決めてマーカーを更新し、必要ならタスクを具体化して追加する
   - 前提に大きな誤りがあり Bunch の目的が達成できない場合は、手順 5 の完了に進み、ユーザに仕切り直しを依頼する
 - Bunch Document の Timeline に追記する
+  - 追記はヘルパスクリプト `${CLAUDE_PLUGIN_ROOT}/scripts/log.sh` を使う
+    ```sh
+    bash ${CLAUDE_PLUGIN_ROOT}/scripts/log.sh <Bunch Document のパス> <<'EOF'
+    {{ID}}: {{1行報告}}
+    - {{補足(任意)}}
+    EOF
+    ```
+  - 詳細は書かない、Task Document を読めば分かることは繰り返さず、短い状況説明に留める
+  - 特定のタスクではない内容は `ID:` を省く
 - 次に着手するタスクを決めて手順3へ / Bunch のタスクが完了すれば手順5へ
 
 ## 5. Bunch の完了

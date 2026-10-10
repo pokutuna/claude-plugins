@@ -29,5 +29,5 @@ Bunch: {{INIT: この Task Document から Bunch Document への相対パス}}
 ## Work Log
 
 <!-- 以下の形式で追記していく
-- <yyyy-mm-dd hh:mm> <おきたこと>
+- {{yyyy-mm-dd hh:mm}} {{したこと・おきたこと}}
 -->
