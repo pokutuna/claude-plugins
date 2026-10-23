@@ -57,6 +57,17 @@ STATE_FILE="$STATE_DIR/cc-limit-usage.conf"
 # plugin update alone never refreshes it.
 SNAP_SCHEMA=1
 
+# A git config writer killed mid-write (SIGKILL, sleep, power loss) leaves
+# $STATE_FILE.lock behind, and every later write fails on it until it is removed
+# — silently, since the wrapper swallows write errors. git holds the lock only
+# for milliseconds, so one older than a minute is an orphan: drop it.
+clear_stale_lock() {
+    local lock="$STATE_FILE.lock"
+    if [[ -n "$(find "$lock" -mmin +1 2>/dev/null)" ]]; then
+        rm -f "$lock" 2>/dev/null || true
+    fi
+}
+
 input="$(cat)"
 
 # Capture rate_limits (-> [global]) and cost (-> [session]) into the state file.
@@ -65,6 +76,7 @@ input="$(cat)"
 # value with an empty one.
 if command -v jq >/dev/null 2>&1; then
     mkdir -p "$STATE_DIR"
+    clear_stale_lock
 
     # Pull everything we need in one jq pass: session id, the rate fields, cost,
     # and a "has rate_limits?" flag. Missing scalars come back as the literal

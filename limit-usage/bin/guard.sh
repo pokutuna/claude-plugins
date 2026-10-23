@@ -88,6 +88,18 @@ age_header() {
     fi
 }
 
+# A git config writer killed mid-write (SIGKILL, sleep, power loss) leaves
+# $STATE_FILE.lock behind, and every later write fails on it until it is removed:
+# set exits with an error, and the wrapper's snapshot writes fail silently so
+# check ends up failing open. git holds the lock only for milliseconds, so one
+# older than a minute is an orphan: drop it.
+clear_stale_lock() {
+    local lock="$STATE_FILE.lock"
+    if [[ -n "$(find "$lock" -mmin +1 2>/dev/null)" ]]; then
+        rm -f "$lock" 2>/dev/null || true
+    fi
+}
+
 cfg_get() {
     git config -f "$STATE_FILE" "$1" 2>/dev/null || true
 }
@@ -439,9 +451,9 @@ uninstall() {
 
 case "${1:-check}" in
     check)     check ;;
-    set)       gc_sessions; warn_if_stale_wrapper; shift; set_limit "$@" ;;
-    clear)     gc_sessions; warn_if_stale_wrapper; clear_limits ;;
-    status)    gc_sessions; warn_if_stale_wrapper; status ;;
+    set)       clear_stale_lock; gc_sessions; warn_if_stale_wrapper; shift; set_limit "$@" ;;
+    clear)     clear_stale_lock; gc_sessions; warn_if_stale_wrapper; clear_limits ;;
+    status)    clear_stale_lock; gc_sessions; warn_if_stale_wrapper; status ;;
     install)   install ;;
     uninstall) uninstall ;;
     *)

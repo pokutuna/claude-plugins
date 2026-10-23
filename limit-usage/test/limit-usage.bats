@@ -307,6 +307,29 @@ assert_denied_with() {
   [ "$(state session.LIVE.used-usd)" = "1" ]
 }
 
+# --- orphaned git config lock ---
+
+@test "wrapper removes an orphaned lock and writes the snapshot" {
+  touch -t 202001010000 "$STATE_FILE.lock"
+  wrap '{"session_id":"S","rate_limits":{"five_hour":{"used_percentage":42}}}'
+  [ ! -e "$STATE_FILE.lock" ]
+  [ "$(state global.used-5h)" = "42" ]
+}
+
+@test "set removes an orphaned lock and writes the threshold" {
+  touch -t 202001010000 "$STATE_FILE.lock"
+  run guard S set 5h 80
+  [ "$status" -eq 0 ]
+  [ "$(state session.S.limit-5h)" = "80" ]
+}
+
+@test "a fresh lock is left alone (a live writer may hold it)" {
+  touch "$STATE_FILE.lock"
+  wrap '{"session_id":"S","rate_limits":{"five_hour":{"used_percentage":42}}}'
+  [ -e "$STATE_FILE.lock" ]
+  [ -z "$(state global.used-5h)" ]
+}
+
 # --- stale-wrapper detection (schema generation) ---
 
 @test "current wrapper snapshot triggers no stale warning" {

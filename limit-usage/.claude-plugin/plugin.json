@@ -1,7 +1,7 @@
 {
   "name": "limit-usage",
   "description": "Stop tool execution before you exhaust your Claude usage. Reads the 5h/7d usage % and the session cost from statusLine at zero metering cost and denies tool calls once a threshold is passed (use cost on plans with no usage quota).",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": {
     "name": "pokutuna"
   },

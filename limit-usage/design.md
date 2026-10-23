@@ -118,6 +118,7 @@ This adds just one judgment axis (no new hook / surface, `limit-usage-setup` unt
 
 **Final correction (unification)**: judged the file split unnecessary and **consolidated into one file, `cc-limit-usage.conf`**. Reasons:
 - `git config` writes are atomic (create `.lock` → rename), so even in one file the values don't mix as long as the keys differ. Concurrency is practically a handful of sessions, and even a collision falls open and recovers on the next response, so no retry is needed either (a review showed "15% lock failures at 100-way concurrency," but that's an unrealistic load for human-driven sessions). The main motivation for splitting (avoiding contention) was thin.
+  - **Exception — an orphaned lock does not recover on its own**: a writer killed mid-write (SIGKILL, sleep, power loss) leaves `.lock` behind, and from then on every write fails with `could not lock config file`. Since the wrapper swallows write errors and `check` treats a stale snapshot as absent, the guard silently failed open for two days in practice. Fix: before writing, the wrapper and `set`/`clear`/`status` delete a `.lock` older than one minute (`find -mmin +1`, portable across BSD/GNU). git holds the lock for milliseconds, so a minute-old lock is never a live writer's.
 - One file means state location, cleanup, and migration all happen in one place, reducing the number of concepts.
 
 The structure after unification. **Sections are cut by scope (global / session); kinds are distinguished by key prefix** (`used-*` = measured / `limit-*` = threshold):
