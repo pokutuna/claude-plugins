@@ -63,3 +63,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [test-quality](./test-quality/) | Write valuable tests and prune low-value ones that coding agents tend to generate |
 | [bunch](./bunch/) | Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task |
 | [polish](./polish/) | Skills that revise text and other deliverables |
+| [ui-writing](./ui-writing/) | Write and review Japanese UI text |

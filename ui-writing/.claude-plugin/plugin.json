@@ -1,0 +1,15 @@
+{
+  "name": "ui-writing",
+  "version": "0.1.0",
+  "description": "日本語の UI 文言を書き、レビューするための規範",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "writing",
+    "ui",
+    "ux-writing",
+    "microcopy"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/ui-writing"
+}

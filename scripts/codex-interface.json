@@ -199,5 +199,15 @@
     "capabilities": ["Read", "Write"],
     "defaultPrompt": ["Remove AI slop from this branch"],
     "brandColor": "#B8860B"
+  },
+  "ui-writing": {
+    "displayName": "ui-writing",
+    "shortDescription": "Write and review Japanese UI text",
+    "longDescription": "Rules for writing and reviewing Japanese UI text by role: titles, labels, buttons, dialogs, error messages, and empty states. Decides what each place needs to say before shortening it, and keeps terms consistent with a glossary.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Review the UI text in this dialog"],
+    "brandColor": "#2E7D6B"
   }
 }

@@ -169,6 +169,12 @@
       "description": "Skills that revise text and other deliverables",
       "source": "./polish",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/polish"
+    },
+    {
+      "name": "ui-writing",
+      "description": "Write and review Japanese UI text",
+      "source": "./ui-writing",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/ui-writing"
     }
   ]
 }

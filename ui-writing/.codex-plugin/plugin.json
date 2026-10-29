@@ -1,0 +1,33 @@
+{
+  "name": "ui-writing",
+  "version": "0.1.0",
+  "description": "日本語の UI 文言を書き、レビューするための規範",
+  "author": {
+    "name": "pokutuna"
+  },
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/ui-writing",
+  "keywords": [
+    "writing",
+    "ui",
+    "ux-writing",
+    "microcopy"
+  ],
+  "repository": "https://github.com/pokutuna/claude-plugins",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ui-writing",
+    "shortDescription": "Write and review Japanese UI text",
+    "longDescription": "Rules for writing and reviewing Japanese UI text by role: titles, labels, buttons, dialogs, error messages, and empty states. Decides what each place needs to say before shortening it, and keeps terms consistent with a glossary.",
+    "developerName": "pokutuna",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Review the UI text in this dialog"
+    ],
+    "brandColor": "#2E7D6B"
+  }
+}
