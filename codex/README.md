@@ -11,11 +11,11 @@ OpenAI Codex CLI に質問し、Claude Code から独立した AI の意見を�
 
 `/codex-review` は差分レビュー専用で、`--sandbox read-only` に固定して起動する。Codex はファイルを編集しない。`codex exec review` は対象フラグ (`--uncommitted` / `--base` / `--commit`) とレビュー観点の同時指定を許さないため、観点を指定した場合はレビュー範囲をプロンプト側で伝える。
 
-両 skill は `scripts/` 配下の wrapper script (`share-path.sh` / `run-codex.sh` / `wait-codex.sh`) を共用する。
+両 skill は `scripts/` 配下の wrapper script (`share-path.sh` / `run-codex.sh` / `wait-codex.sh` / `list-models.sh`) を共用する。
 
 最終回答と、実行中の JSONL イベントログは `$TMPDIR`（未設定時は `/tmp`）に保存される。Claude Code 側の待機が timeout しても Codex プロセスは継続し、ログから進行状態を確認できる。Codex のセッションも保持するため、必要に応じて `codex exec resume --last` で再開できる。
 
-既定のモデルと reasoning effort は `gpt-6-luna` と `xhigh`。`--model` と `--effort` で実行ごとに上書きできる。
+既定のモデルと reasoning effort は `gpt-6.1-sol` と `medium`。`--model` と `--effort` で実行ごとに上書きできる。`--model` の指定が曖昧なときは、`scripts/list-models.sh` (`codex debug models` の要約) でインストール済みの Codex CLI が使えるモデルを調べて slug を決める。
 
 ## Prerequisites
 
@@ -27,7 +27,7 @@ OpenAI Codex CLI に質問し、Claude Code から独立した AI の意見を�
 ```
 /ask-codex staged -y                         # staged changes を確認スキップでレビュー
 /ask-codex この設計方針についてレビューして     # 方針レビュー
-/ask-codex src/auth.ts --model gpt-6-luna --effort max  # 特定ファイルをモデル・effort 指定でレビュー
+/ask-codex src/auth.ts --model gpt-6-astra --effort high  # 特定ファイルをモデル・effort 指定でレビュー
 /ask-codex PR のエラーハンドリングを確認して   # 現在の変更の観点指定レビュー
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "codex",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "OpenAI Codex CLI integration for autonomous second opinions and code review",
   "author": {
     "name": "pokutuna"

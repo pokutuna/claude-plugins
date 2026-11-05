@@ -5,6 +5,7 @@ argument-hint: "[--uncommitted | base <branch> | commit <sha>] [focus] [--model 
 compatibility: Codex CLI installed and authenticated
 allowed-tools:
   - Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/share-path.sh)
+  - Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/list-models.sh)
   - Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh *)
   - Bash(bash ${CLAUDE_PLUGIN_ROOT}/scripts/wait-codex.sh *)
   - Read
@@ -39,13 +40,27 @@ $ARGUMENTS
   - `base <branch>` → `--base <branch>` (指定ブランチとの差分)
   - `commit <sha>` → `--commit <sha>` (指定コミットの変更)
 - **レビュー観点**: 対象の後ろにある自然言語。渡し方は下の制約に従う
-- **オプション**: `--model <model>` と `--effort <level>`。既定値は `gpt-6-luna` と `xhigh`
+- **オプション**: `--model <model>` と `--effort <level>`。既定値は `gpt-6.1-sol` と `medium`。指定が曖昧なときは [モデルの確認](#モデルの確認) に従う
 - **確認スキップ**: `-y` / `--yes`
 
 `-y` / `--yes`、`--model`、`--effort` はレビュー観点の本文に含めない。
 
 対象が省略されたまま `/codex-review` が呼ばれた場合は、確認せず `--uncommitted` を使う。
 レビュー対象の変更が存在しない場合のみ、実行前に対象を確認する。
+
+### モデルの確認
+
+`--model` の値が正確な slug でないとき (`sol`、`6.1`、`最新`、`一番強いの` など) や見覚えのない名前のときは、推測で補わず、インストール済みの Codex CLI が使えるモデルを次で調べてから決める。既定値や正確な slug が指定されたときは実行しない。
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/list-models.sh
+```
+
+1 行に 1 モデルずつ、slug、既定 effort (`default=`)、対応 effort (`efforts=`)、説明をタブ区切りで出力する。新しいモデルほど上に並ぶ。
+
+- 指定に合う slug が 1 つなら、それを使う。複数あるときは最も上の slug を使う。どちらの場合も、選んだ slug を実行前の確認か結果の報告で示す
+- 合う slug がなければ、一覧を示してユーザーに選んでもらう
+- `--effort` の値が選んだモデルの `efforts=` にないときは、実行前にユーザーに伝える (例: `gpt-6-luna` は `ultra` に対応しない)
 
 ### 対象フラグと観点は排他
 
@@ -98,7 +113,7 @@ wrapper は codex exec をプロセスグループから切り離して backgrou
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_FILE>" "<冒頭で確定した TRANSCRIPT_FILE>" \
   --sandbox read-only --ignore-user-config -c 'approval_policy="never"' \
-  --model "<model: 既定 gpt-6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
+  --model "<model: 既定 gpt-6.1-sol>" -c 'model_reasoning_effort="<effort: 既定 medium>"' \
   --color never --json -C "$PWD" \
   review --uncommitted
 ```
@@ -108,7 +123,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_F
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/run-codex.sh "<冒頭で確定した RESULT_FILE>" "<冒頭で確定した TRANSCRIPT_FILE>" \
   --sandbox read-only --ignore-user-config -c 'approval_policy="never"' \
-  --model "<model: 既定 gpt-6-luna>" -c 'model_reasoning_effort="<effort: 既定 xhigh>"' \
+  --model "<model: 既定 gpt-6.1-sol>" -c 'model_reasoning_effort="<effort: 既定 medium>"' \
   --color never --json -C "$PWD" \
   review "$(cat <<'PROMPT'
 <レビュー範囲の指示>
@@ -138,7 +153,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/wait-codex.sh "<冒頭で確定した TRANSCR
 
 第 2 引数は待機秒数 (既定 300)。`RUNNING (<n> events done, last activity <s>s ago)` と直近イベントの要約が出た場合は、進行状況を 1 行以内で伝えて即座に再実行する。要約は進行確認のためだけの出力なので、内容を解説したり finding を推測したりしない。プロセスグループが切り離されているため、ポーリングコマンドが timeout しても codex 本体には影響しない。ポーリングを待たずに制御を返す場合も、Codex プロセスを kill してはならない。
 
-大きな差分に対する xhigh のレビューは 30〜60 分かかることがある。RUNNING が続いても異常ではないので、last activity が更新されている限り根気よくポーリングを続ける。最初の RUNNING を確認した時点で、レビューには数十分かかりうることをユーザーに一度伝えておく。
+大きな差分を `xhigh` 以上の effort でレビューすると 30〜60 分かかることがある。RUNNING が続いても異常ではないので、last activity が更新されている限り根気よくポーリングを続ける。最初の RUNNING を確認した時点で、レビューには数十分かかりうることをユーザーに一度伝えておく。
 
 - `EXIT 0`: `RESULT_FILE` を Read し、Claude 自身のレビューとは独立した Codex の結果として提示する。finding の優先度、タイトル、ファイル位置、全体評価を変更せずに伝える。末尾に `RESULT_FILE` と `TRANSCRIPT_FILE` のパスを示す
 - `EXIT 143` / `EXIT 137`: watchdog による停止の可能性が高い。`LOG_FILE` 末尾の `watchdog:` 行を確認し、無活動または実行時間超過で停止した旨を報告する
@@ -157,5 +172,5 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/wait-codex.sh "<冒頭で確定した TRANSCR
 /codex-review base main                            # main との差分を --base main でレビュー
 /codex-review commit abc1234                       # 特定コミットを --commit でレビュー
 /codex-review base main セキュリティ観点で          # 観点あり → PROMPT に範囲と観点を記述
-/codex-review --model gpt-6-sol --effort high    # モデル・effort 指定
+/codex-review --model gpt-6-astra --effort high  # モデル・effort 指定
 ```
