@@ -8,6 +8,7 @@ import {
   describeBreach,
   describeLimit,
   effectiveLimits,
+  hasReset,
   mergeReadings,
   parseArgs,
   pickRates,
@@ -60,16 +61,22 @@ async function globalLimits($: Dollar): Promise<Limits> {
   return asLimits(await $.store.get(GLOBAL_LIMITS));
 }
 
+/** Readings other sessions shared; only those that can expire. */
+async function sharedReadings($: Dollar): Promise<Reading[]> {
+  const value = await $.store.get(SHARED_RATES).catch(() => undefined);
+
+  return asReadings(value).filter(hasReset);
+}
+
 /** This session's readings and the ones other sessions shared, merged. */
 async function currentRates($: Dollar, own: readonly Reading[], nowMs: number) {
-  const shared = asReadings(
-    await $.store.get(SHARED_RATES).catch(() => undefined),
-  );
+  const shared = await sharedReadings($);
 
   return pickRates([...own, ...shared], nowMs);
 }
 
-type Found = { breach: Breach; nowMs: number };
+/** A block: what is over, when, and the command that lifts it. */
+type Found = { breach: Breach; nowMs: number; lift: string };
 
 async function overLimit($: Dollar): Promise<Found | undefined> {
   const [session, global] = await Promise.all([
@@ -83,8 +90,16 @@ async function overLimit($: Dollar): Promise<Found | undefined> {
   const rates = await currentRates($, usage.rateLimits, nowMs);
 
   const found = breach(limits, rates, usage.cost?.usd);
+  if (found === undefined) return undefined;
+  // A rate block set only globally is lifted by `clear --global`.
+  const isGlobal =
+    found.kind === "rate" && session[found.window] === undefined;
 
-  return found === undefined ? undefined : { breach: found, nowMs };
+  return {
+    breach: found,
+    nowMs,
+    lift: `/${COMMAND} clear${isGlobal ? " --global" : ""}`,
+  };
 }
 
 /** Pins the block on the plugin's status line while it holds; clears it otherwise. */
@@ -92,7 +107,7 @@ function showStatus($: Dollar, found: Found | undefined): void {
   $.ui.status(
     found === undefined
       ? undefined
-      : statusText(found.breach, COMMAND, found.nowMs),
+      : statusText(found.breach, found.lift, found.nowMs),
   );
 }
 
@@ -111,10 +126,8 @@ async function snapshotPath($: Dollar): Promise<string | undefined> {
 /** Shares this session's rate readings with other sessions and with display tools. */
 async function publishRates($: Dollar, own: readonly Reading[]): Promise<void> {
   const nowMs = await $.clock.now();
-  const shared = asReadings(
-    await $.store.get(SHARED_RATES).catch(() => undefined),
-  );
-  const readings = mergeReadings([...own, ...shared], nowMs);
+  const shared = await sharedReadings($);
+  const readings = mergeReadings([...own.filter(hasReset), ...shared], nowMs);
   await $.store.set(SHARED_RATES, {
     readings,
     at: nowMs,
@@ -200,21 +213,30 @@ async function setLimits(
   return `Set ${done.join(", ")}.${note}`;
 }
 
-async function clearLimits($: Dollar): Promise<string> {
+/** Clears this session's thresholds; with `--global`, the global ones too. */
+async function clearLimits($: Dollar, isGlobal: boolean): Promise<string> {
   const [session, global] = await Promise.all([
     sessionLimits($),
     globalLimits($),
   ]);
+  const describe = (limits: Limits, scope: string) =>
+    Object.entries(limits).map(([w, n]) => `${w}=${n} (${scope})`);
   const cleared = [
-    ...Object.entries(session).map(([w, n]) => `${w}=${n} (session)`),
-    ...Object.entries(global).map(([w, n]) => `${w}=${n} (global)`),
+    ...describe(session, "session"),
+    ...(isGlobal ? describe(global, "global") : []),
   ];
   await $.state.set(LIMITS, {});
-  await $.store.delete(GLOBAL_LIMITS);
+  if (isGlobal) await $.store.delete(GLOBAL_LIMITS);
 
-  return cleared.length === 0
-    ? "No thresholds were set; nothing to clear."
-    : `Cleared ${cleared.length} threshold(s): ${cleared.join(", ")}`;
+  const kept = isGlobal ? [] : describe(global, "global");
+  const done =
+    cleared.length === 0
+      ? "No thresholds were set here; nothing to clear."
+      : `Cleared ${cleared.length} threshold(s): ${cleared.join(", ")}`;
+
+  return kept.length === 0
+    ? done
+    : `${done}\nStill in effect for every session: ${kept.join(", ")}. Remove them with /${COMMAND} clear --global.`;
 }
 
 export const register: Register = (on) => {
@@ -223,7 +245,7 @@ export const register: Register = (on) => {
       name: COMMAND,
       description:
         "Stop model requests at a 5h/7d usage-% or session cost threshold",
-      argumentHint: "5h=80 7d=90 | cost=$5 | --global | clear | status",
+      argumentHint: "5h=80 7d=90 | cost=$5 | --global | clear [--global] | status",
       immediate: true,
     });
     // After a reload or resume, put the line back if it still blocks.
@@ -239,7 +261,7 @@ export const register: Register = (on) => {
         case "status":
           return status($);
         case "clear":
-          return clearLimits($);
+          return clearLimits($, command.isGlobal);
         case "set":
           return setLimits($, command.values, command.isGlobal);
         case "error":

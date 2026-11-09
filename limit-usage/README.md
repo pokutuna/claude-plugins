@@ -11,7 +11,7 @@ Set a threshold and once it is reached, the plugin **stops every model request**
 
 Both figures come from Claude Code itself, so measuring costs **zero extra quota** — no `claude -p`, no OAuth token, no API calls, no statusLine setup. It fails open: with no data, no threshold, or an internal error, requests go through normally.
 
-> **Requires a Claude Code build with mods** (function hooks, early access). On a build without them the plugin loads nothing and stops nothing.
+> **Requires a Claude Code build with mods** (function hooks, early access). On a build without them the plugin does not work: it stops nothing, and the build may report a plugin load error.
 
 > **`cost` is per-session.** Each session's `cost` limit tracks only that session's own spend. `5h`/`7d` are account-wide, and a reading from one session also guards the others.
 
@@ -31,13 +31,14 @@ claude plugin install limit-usage@pokutuna-plugins --scope user
 /limit-usage 5h=80 7d=90       # set both windows in one go
 /limit-usage cost=$5           # stop once this session reaches ~$5 (cost=5 / $5 also work)
 /limit-usage 7d=90 --global    # apply to all sessions (5h/7d only)
-/limit-usage clear             # remove every threshold in effect now (this session + global)
+/limit-usage clear             # remove this session's thresholds (global ones stay)
+/limit-usage clear --global    # remove this session's and the global thresholds
 /limit-usage status            # thresholds + current usage
 ```
 
 For `5h`/`7d` the number is the **used percentage** (0–100): `80` means "80% used / 20% left". A session threshold overrides the global one for the same window. For `cost` it's an **approximate USD** amount Claude Code estimates, so treat it as a rough cap. It is per-session only: `cost` with `--global` is set for the current session.
 
-While a request is being stopped, the plugin's status line under the prompt shows why and how to lift it, e.g. `Blocked: 5h 81.0% >= 80% · resets 18:10 · /limit-usage clear`. The command itself never sends a model request, so it works while blocked.
+While a request is being stopped, the plugin's status line under the prompt shows why and how to lift it, e.g. `Blocked: 5h 81.0% >= 80% · resets 18:10 · /limit-usage clear`. When the threshold behind the block was set with `--global`, the line names `/limit-usage clear --global` instead. The command itself never sends a model request, so it works while blocked.
 
 `5h`/`7d` figures appear after the first API response of any session. If `status` never shows them, your plan has no usage quota — use a `cost` limit instead.
 
@@ -56,7 +57,7 @@ flowchart LR
 ```
 
 1. Before each model request, main loop or subagent, a `turn.step` hook compares current usage against the thresholds. When one is reached it answers the step itself, so no request is sent.
-2. Usage is read from Claude Code: the session's own rate limits and cost, plus the latest rate readings other sessions shared. Per window the highest reading whose window has not reset is used.
+2. Usage is read from Claude Code: the session's own rate limits and cost, plus the latest rate readings other sessions shared. Per window the highest reading whose window has not reset is used. Only readings with a reset time are shared, since one without it could never expire.
 3. Session thresholds live in the session's plugin state; `--global` thresholds and shared readings live in the plugin store Claude Code manages. The plugin keeps no state file of its own.
 
 ### Snapshot for other tools

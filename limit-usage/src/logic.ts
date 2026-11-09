@@ -15,7 +15,7 @@ export const WINDOW_OF: Record<string, Window | undefined> = {
 
 export type Command =
   | { kind: "status" }
-  | { kind: "clear" }
+  | { kind: "clear"; isGlobal: boolean }
   | { kind: "set"; isGlobal: boolean; values: Limits }
   | { kind: "error"; message: string };
 
@@ -26,26 +26,26 @@ const NUM = /^\d+(?:\.\d+)?$/;
  * `5h=80`, `5h 80%`, `set 7d=90`, `cost=$5`, `$5`, `--global`.
  */
 export function parseArgs(args: string): Command {
-  const tokens = args
+  const all = args
     .trim()
+    .toLowerCase()
     .split(/\s+/)
     .filter((t) => t !== "");
-  if (tokens.length === 0 || (tokens.length === 1 && tokens[0] === "status")) {
+  const isFlag = (t: string) => t === "--global" || t === "-g";
+  const isGlobal = all.some(isFlag);
+  // Flags are read apart, so `5h --global` never takes the flag as its value.
+  const tokens = all.filter((t) => !isFlag(t));
+  if (all.length === 0 || (tokens.length === 1 && tokens[0] === "status")) {
     return { kind: "status" };
   }
-  if (tokens.length === 1 && /^(clear|off|reset)$/i.test(tokens[0] ?? "")) {
-    return { kind: "clear" };
+  if (tokens.length === 1 && /^(clear|off|reset)$/.test(tokens[0] ?? "")) {
+    return { kind: "clear", isGlobal };
   }
 
   const values: Limits = {};
-  let isGlobal = false;
   for (let i = 0; i < tokens.length; i++) {
-    const token = (tokens[i] ?? "").toLowerCase();
+    const token = tokens[i] ?? "";
     if (token === "set") continue;
-    if (token === "--global" || token === "-g") {
-      isGlobal = true;
-      continue;
-    }
 
     // `5h=80`, `cost=$5`, `cost:5$`; or `5h` followed by `80`
     let match = /^(5h|7d|cost|usd)[=:]?(.*)$/.exec(token);
@@ -73,6 +73,9 @@ export function parseArgs(args: string): Command {
     }
 
     const value = raw.replace(/^[=:]/, "").replace(/[$%]/g, "");
+    if (value === "") {
+      return { kind: "error", message: `Missing a number for ${windowWord}.` };
+    }
     if (!NUM.test(value)) {
       return {
         kind: "error",
@@ -116,6 +119,17 @@ export function isLive(reading: Reading, nowMs: number): boolean {
   const resets = Date.parse(reading.resetsAt);
 
   return Number.isNaN(resets) || resets > nowMs;
+}
+
+/**
+ * Whether a reading names a parsable reset time. Only such readings are shared
+ * with other sessions: one without it never expires, so a high value would keep
+ * every session blocked after its window had reset.
+ */
+export function hasReset(reading: Reading): boolean {
+  return (
+    reading.resetsAt !== undefined && !Number.isNaN(Date.parse(reading.resetsAt))
+  );
 }
 
 /**
@@ -221,15 +235,18 @@ export function describeBreach(b: Breach): string {
     : `Session cost ~$${b.usd.toFixed(2)} >= limit $${b.limit.toFixed(2)}. Stopped by limit-usage.`;
 }
 
-/** One short line for the plugin's status line while it blocks. */
-export function statusText(b: Breach, command: string, nowMs: number): string {
+/**
+ * One short line for the plugin's status line while it blocks. `lift` is the
+ * command that removes the threshold behind the block.
+ */
+export function statusText(b: Breach, lift: string, nowMs: number): string {
   const what =
     b.kind === "rate"
       ? `${b.window} ${b.percentUsed.toFixed(1)}% >= ${b.limit}%`
       : `cost ~$${b.usd.toFixed(2)} >= $${b.limit.toFixed(2)}`;
   const reset = b.kind === "rate" ? shortReset(b.resetsAt, nowMs) : "";
 
-  return `Blocked: ${what}${reset ? ` · resets ${reset}` : ""} · /${command} clear`;
+  return `Blocked: ${what}${reset ? ` · resets ${reset}` : ""} · ${lift}`;
 }
 
 /** The reason to stop, or undefined to let the request through. */

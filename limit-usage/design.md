@@ -27,19 +27,24 @@ both workarounds go away.
    - `cost`: deny when this session's `cost.usd >= limit`; session-only,
      so `cost` with `--global` is set for the current session.
    - A session threshold overrides the global one per window.
+   - `clear` removes this session's thresholds; `clear --global` also removes
+     the global ones, so lifting one session's block never changes the others.
    - A rate reading whose `resetsAt` has passed counts as absent.
 5. **Cross-session rate readings.** Each measurement is also written to
    `$.store`, so a session that has not had a response yet (empty
    `rateLimits`) is still guarded. Per window the guard takes the highest
    reading whose window has not reset; within one window usage only grows, so
-   the highest valid reading is the newest.
+   the highest valid reading is the newest. A reading with no parsable
+   `resetsAt` is used by its own session but never shared: it could not
+   expire, so a high value would block every session indefinitely.
 6. **External snapshot for display tools.** On each rate measurement, write
    `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json`
    (`{ schema, epoch, rateLimits }`). Display only: the guard never reads it.
    Readers treat unparsable content or an unknown `schema` as no value.
 7. **Show why requests are stopped.** While a request is being stopped, the
    plugin's own `$.ui.status` line (beside the engine's notices, not the
-   user's statusLine) says why and how to lift it; otherwise it is cleared.
+   user's statusLine) says why and names the command that lifts it (`clear`,
+   or `clear --global` for a global threshold); otherwise it is cleared.
    It is refreshed on each step, after each command, and at session start.
    A window that resets clears the line at the next step, not on its own.
 8. **Fail open.** Any internal error lets the request through; a failed

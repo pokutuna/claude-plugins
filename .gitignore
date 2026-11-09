@@ -19,4 +19,4 @@ XAI
 !docgen/skills/html/references/component-samples.dark.png
 
 # Claude Code mods: types the engine writes on load
-.claude-plugin/types/
+**/.claude-plugin/types/

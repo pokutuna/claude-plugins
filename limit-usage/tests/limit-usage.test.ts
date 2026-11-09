@@ -44,7 +44,14 @@ describe("parseArgs", () => {
     });
     expect(parseArgs("")).toEqual({ kind: "status" });
     expect(parseArgs("status")).toEqual({ kind: "status" });
-    expect(parseArgs("clear")).toEqual({ kind: "clear" });
+    expect(parseArgs("clear")).toEqual({ kind: "clear", isGlobal: false });
+    expect(parseArgs("clear --global")).toEqual({ kind: "clear", isGlobal: true });
+    expect(parseArgs("STATUS")).toEqual({ kind: "status" });
+    expect(parseArgs("5H=80 -G")).toEqual({
+      kind: "set",
+      isGlobal: true,
+      values: { "5h": 80 },
+    });
   });
 
   test("refuses what it cannot place", async () => {
@@ -52,6 +59,10 @@ describe("parseArgs", () => {
     expect(parseArgs("5h=120").kind).toBe("error");
     expect(parseArgs("5h=abc").kind).toBe("error");
     expect(parseArgs("cost=0").kind).toBe("error");
+    expect(parseArgs("5h --global")).toEqual({
+      kind: "error",
+      message: "Missing a number for 5h.",
+    });
   });
 });
 
@@ -62,11 +73,11 @@ describe("statusText", () => {
     const five = breach({ "5h": 80 }, { "5h": { kind: "five_hour", percentUsed: 85, resetsAt: soon } }, undefined);
     const seven = breach({ "7d": 90 }, { "7d": { kind: "seven_day", percentUsed: 91, resetsAt: later } }, undefined);
     const cost = breach({ cost: 5 }, {}, 6.2);
-    expect(five && statusText(five, "lu", NOW)).toMatch(
+    expect(five && statusText(five, "/lu clear", NOW)).toMatch(
       /^Blocked: 5h 85\.0% >= 80% · resets (\d\d-\d\d )?\d\d:\d\d · \/lu clear$/,
     );
-    expect(seven && statusText(seven, "lu", NOW)).toMatch(/resets \d\d-\d\d \d\d:\d\d/);
-    expect(cost && statusText(cost, "lu", NOW)).toBe("Blocked: cost ~$6.20 >= $5.00 · /lu clear");
+    expect(seven && statusText(seven, "/lu clear", NOW)).toMatch(/resets \d\d-\d\d \d\d:\d\d/);
+    expect(cost && statusText(cost, "/lu clear", NOW)).toBe("Blocked: cost ~$6.20 >= $5.00 · /lu clear");
   });
 });
 
@@ -238,15 +249,29 @@ describe("the guard on model steps", () => {
     expect(world.sent).toEqual([]);
   });
 
-  test("clear lets requests through again", async ($, on) => {
+  test("clear --global lets requests through again", async ($, on) => {
     const world = engine(on, {
       rateLimits: [{ kind: "five_hour", percentUsed: 85, resetsAt: FUTURE }],
     });
     await run($, "5h=80 7d=50 --global");
     await run($, "5h=80");
-    expect(await run($, "clear")).toMatch(/Cleared 3 threshold/);
+    expect(await run($, "clear --global")).toMatch(/Cleared 3 threshold/);
     await step($);
     expect(world.sent).toEqual([0]);
+  });
+
+  test("plain clear keeps global thresholds and points at clear --global", async ($, on) => {
+    const world = engine(on, {
+      rateLimits: [{ kind: "five_hour", percentUsed: 85, resetsAt: FUTURE }],
+    });
+    await run($, "5h=80 --global");
+    await run($, "7d=90");
+    expect(world.statuses.at(-1)).toMatch(/· \/limit-usage clear --global$/);
+    const text = await run($, "clear");
+    expect(text).toMatch(/Cleared 1 threshold\(s\): 7d=90 \(session\)/);
+    expect(text).toMatch(/Still in effect for every session: 5h=80 \(global\)/);
+    await step($);
+    expect(world.sent).toEqual([]);
   });
 
   test("the status line shows the block and clears with it", async ($, on) => {
@@ -257,6 +282,7 @@ describe("the guard on model steps", () => {
     expect(world.statuses.at(-1)).toMatch(/^Blocked: 5h 85\.0% >= 80%/);
     await step($);
     expect(world.statuses.at(-1)).toMatch(/^Blocked: 5h/);
+    expect(world.statuses.at(-1)).toMatch(/· \/limit-usage clear$/);
     await run($, "clear");
     expect(world.statuses.at(-1)).toBeUndefined();
     await step($);
@@ -306,5 +332,21 @@ describe("publishing readings", () => {
     await run($, "5h=25");
     await step($);
     expect(world.sent).toEqual([]);
+  });
+
+  test("a reading with no reset time is not shared", async ($, on) => {
+    const world = engine(on, {});
+    await $.session.measure({
+      context: { window: 200000 },
+      rateLimits: [
+        { kind: "five_hour", percentUsed: 99 },
+        { kind: "seven_day", percentUsed: 40, resetsAt: FUTURE },
+      ],
+      changed: ["rateLimits"],
+    });
+    const snapshot = JSON.parse(world.written[0]?.text ?? "{}");
+    expect(snapshot.rateLimits).toEqual([
+      { kind: "seven_day", percentUsed: 40, resetsAt: FUTURE },
+    ]);
   });
 });
