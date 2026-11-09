@@ -17,3 +17,6 @@ XAI
 *.dark.png
 !docgen/skills/html/references/component-samples.light.png
 !docgen/skills/html/references/component-samples.dark.png
+
+# Claude Code mods: types the engine writes on load
+.claude-plugin/types/

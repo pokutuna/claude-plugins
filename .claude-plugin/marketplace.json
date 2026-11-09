@@ -112,7 +112,7 @@
     },
     {
       "name": "limit-usage",
-      "description": "Stop tool execution before you exhaust your Claude usage. Reads the 5h/7d usage % and the session cost from statusLine at zero metering cost and denies tool calls once a threshold is passed (use cost on plans with no usage quota).",
+      "description": "Stop model requests before you exhaust your Claude usage. A mod that reads the 5h/7d usage % and the session cost from Claude Code itself and stops every request, subagents included, once a threshold is reached (use cost on plans with no usage quota). Needs a Claude Code build with mods.",
       "source": "./limit-usage",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/limit-usage"
     },

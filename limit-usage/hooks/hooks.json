@@ -1,16 +1,1 @@
-{
-  "description": "Deny tool execution once a rate-limit window passes the configured usage threshold",
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/guard.sh check"
-          }
-        ]
-      }
-    ]
-  }
-}
+{ "modules": ["../src/register.ts"] }

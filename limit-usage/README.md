@@ -1,19 +1,19 @@
 # limit-usage
 
-Stop tool execution before you exhaust your Claude rate limit.
+Stop model requests before you exhaust your Claude usage.
 
 ## Overview
 
-Set a threshold and once you pass it, the plugin **denies further tool calls** so you don't burn through your usage. Two kinds of threshold:
+Set a threshold and once it is reached, the plugin **stops every model request**, subagents included, so you don't burn through your usage. Two kinds of threshold:
 
 - **Usage %** for a rate-limit window (`5h` / `7d`) — for plans that have a usage quota (Pro / Max / Team / Enterprise).
 - **Cost** — this session's **approximate cumulative USD**. Use this when `5h`/`7d` aren't reported, i.e. a plan with no usage quota.
 
-Both are read from the data Claude Code already feeds your `statusLine`, so measuring costs **zero extra quota** — no `claude -p`, no OAuth token, no API calls. It fails open: with no data or no threshold, tools run normally.
+Both figures come from Claude Code itself, so measuring costs **zero extra quota** — no `claude -p`, no OAuth token, no API calls, no statusLine setup. It fails open: with no data, no threshold, or an internal error, requests go through normally.
 
-> **`cost` is per-session.** `cost` is reported for every session (subscription and API alike) as that session's own cumulative spend. The snapshot keeps each session's cost separate (and the account-wide `5h`/`7d` figures shared), so running several sessions at once is fine — each one's `cost` limit tracks only its own spend, and `5h`/`7d` reflect the whole account. A `cost` limit covers a single session, not the combined spend of all of them.
+> **Requires a Claude Code build with mods** (function hooks, early access). On a build without them the plugin loads nothing and stops nothing.
 
-Requires `jq`. The thresholds appear only after the session's first API response; if status never shows a `5h`/`7d` figure, your plan has no usage quota — use a `cost` limit instead.
+> **`cost` is per-session.** Each session's `cost` limit tracks only that session's own spend. `5h`/`7d` are account-wide, and a reading from one session also guards the others.
 
 ## Install
 
@@ -26,16 +26,6 @@ claude plugin install limit-usage@pokutuna-plugins --scope user
 
 ## Usage
 
-**First, run the one-time setup** — the guard can only see usage after your statusLine is wrapped to capture it:
-
-```
-/limit-usage-setup install
-```
-
-It shows the before/after and edits `statusLine.command` (the edit goes through Claude Code's normal file-permission prompt). Your status line display is unchanged. (Setup is a separate skill so the everyday `/limit-usage` commands need no edit permission.) Re-run it after a plugin update to refresh the wrapper.
-
-Then set thresholds and check status:
-
 ```
 /limit-usage 5h=80             # stop when the 5h window is 80% used (this session)
 /limit-usage 5h=80 7d=90       # set both windows in one go
@@ -45,24 +35,45 @@ Then set thresholds and check status:
 /limit-usage status            # thresholds + current usage
 ```
 
-For `5h`/`7d` the number is **used_percentage** (0–100): `80` means "80% used / 20% left", and `--global` applies it to every session. For `cost` it's an **approximate USD** amount Claude Code estimates, so treat it as a rough cap; it is **per-session only** (a session's cost doesn't add up across sessions, so `--global` isn't allowed for it). Run `/limit-usage-setup uninstall` to restore your original statusLine.
+For `5h`/`7d` the number is the **used percentage** (0–100): `80` means "80% used / 20% left". A session threshold overrides the global one for the same window. For `cost` it's an **approximate USD** amount Claude Code estimates, so treat it as a rough cap. It is per-session only: `cost` with `--global` is set for the current session.
+
+While a request is being stopped, the plugin's status line under the prompt shows why and how to lift it, e.g. `Blocked: 5h 81.0% >= 80% · resets 18:10 · /limit-usage clear`. The command itself never sends a model request, so it works while blocked.
+
+`5h`/`7d` figures appear after the first API response of any session. If `status` never shows them, your plan has no usage quota — use a `cost` limit instead.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    CC[Claude Code] -->|"rate_limits + cost"| W["statusline-wrapper.sh"]
-    W -->|pass-through| ORIG[your statusLine]
-    W -->|"writes used-*"| SF[("state file")]
-    SF -.->|"read used-* + limit-*"| G{{"PreToolUse: guard.sh<br>used% / cost ≥ threshold?"}}
-    SET["/limit-usage set"] -->|"writes limit-*"| SF
-    G -- Yes --> DENY[Deny tool call]
-    G -- No / no data --> ALLOW[Allow]
+    CC[Claude Code] -->|"session.measure: rate limits"| P["limit-usage"]
+    P -->|"latest readings"| ST[("plugin store")]
+    P -->|"snapshot"| SNAP[("cc-limit-usage.json")]
+    SET["/limit-usage"] -->|thresholds| ST
+    STEP["each model step<br>(main and subagents)"] --> G{{"turn.step:<br>used% / cost ≥ threshold?"}}
+    ST -.-> G
+    G -- Yes --> STOP["No request sent"]
+    G -- No / no data --> SEND["Request sent"]
 ```
 
-1. Claude Code feeds the `statusLine` command a stdin blob that carries `rate_limits` (5h/7d usage %, present only on plans with a usage quota) and `cost` (session cost, estimated by Claude Code) — the only hook surface that receives them.
-2. `/limit-usage-setup install` wraps your statusLine with `statusline-wrapper.sh`, which records the measured figures into the state file — `5h`/`7d` under `[global]` (account-wide), `cost` under `[session "<id>"]` (per-session) — and replays stdin to your original command unchanged.
-3. A `PreToolUse` hook runs `guard.sh` before each tool call, compares the captured `used-*` figures against your `limit-*` thresholds (`5h`/`7d`: session → global; `cost`: this session), and denies once any window is at or over its limit.
-4. No snapshot, a stale snapshot (>5 min, override `LIMIT_USAGE_STALE_SECONDS`), or no threshold → the guard stays silent and the tool runs.
+1. Before each model request, main loop or subagent, a `turn.step` hook compares current usage against the thresholds. When one is reached it answers the step itself, so no request is sent.
+2. Usage is read from Claude Code: the session's own rate limits and cost, plus the latest rate readings other sessions shared. Per window the highest reading whose window has not reset is used.
+3. Session thresholds live in the session's plugin state; `--global` thresholds and shared readings live in the plugin store Claude Code manages. The plugin keeps no state file of its own.
 
-State is one git-config file, `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.conf`, sectioned by scope: `[global]` holds account-wide measured usage (`used-5h`/`used-7d`) and `--global` thresholds; `[session "<id>"]` holds that session's measured cost (`used-usd`) and thresholds. The wrapper writes only the `used-*` figures, `set`/`clear` write only the `limit-*` thresholds. To remove the plugin entirely: `/limit-usage-setup uninstall`, then `claude plugin uninstall limit-usage@pokutuna-plugins`.
+### Snapshot for other tools
+
+Each time the rate limits change, the plugin writes `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json`:
+
+```json
+{"schema":1,"epoch":1794250515,"rateLimits":[{"kind":"five_hour","percentUsed":25,"resetsAt":"2026-11-09T21:10:00.000Z"}]}
+```
+
+It is for display tools only; the guard never reads it. Treat unparsable content or an unknown `schema` as no value.
+
+## Upgrading from 0.4.x
+
+0.4.x captured usage by wrapping your statusLine. After updating:
+
+1. Set `statusLine.command` in `~/.claude/settings.json` back to your original command (the part 0.4.x passed to `statusline-wrapper.sh`).
+2. Delete the old state file `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.conf` and `~/.claude/plugins/data/limit-usage-pokutuna-plugins/`.
+
+Thresholds are not carried over; set them again with `/limit-usage`.
