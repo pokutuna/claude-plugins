@@ -38,11 +38,15 @@ export type Snapshot = {
   files: Record<Layer, string>;
   plugins: PluginRow[];
   skills: SkillRow[];
+  /** Layers whose file could not be read, and why; their cells are not offered. */
+  broken: Partial<Record<Layer, string>>;
 };
 
 /** A change pressed in the pane and not yet saved. */
 export type Edit = {
   layer: Layer;
+  /** The settings file the change is for, so it never lands in another folder's. */
+  file: string;
   section: SectionKey;
   key: string;
   /** The value the file held when the change was pressed. */

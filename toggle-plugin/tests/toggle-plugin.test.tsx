@@ -1,4 +1,5 @@
 import { expect, test } from "claude-code/testing";
+import type { TestBody } from "claude-code/testing";
 
 import { planFile } from "../src/logic";
 
@@ -35,13 +36,14 @@ const SNAPSHOT = {
   skills: [
     { name: "commit", origin: "user", user: null, project: "off", local: null },
   ],
+  broken: {},
 };
 
 test("the skills tab draws a button per layer on terminal and desktop", async ($, on) => {
   on("state.get", (_, e) => {
     if (e.key === "snapshot")
       return {
-        value: { value: { shape: "snapshot-3", value: SNAPSHOT }, version: 1 },
+        value: { value: { shape: "snapshot-4", value: SNAPSHOT }, version: 1 },
       };
     if (e.key === "tab") return { value: { value: "skills", version: 1 } };
     return { value: { value: undefined, version: 0 } };
@@ -63,7 +65,7 @@ test("a plugin installed for this project alone offers no user cell", async ($, 
   on("state.get", (_, e) => {
     if (e.key === "snapshot")
       return {
-        value: { value: { shape: "snapshot-3", value: SNAPSHOT }, version: 1 },
+        value: { value: { shape: "snapshot-4", value: SNAPSHOT }, version: 1 },
       };
     if (e.key === "tab") return { value: { value: "plugins", version: 1 } };
     return { value: { value: undefined, version: 0 } };
@@ -84,14 +86,16 @@ const PROJECT_FILE = "/repo/.claude/settings.json";
 
 /** Stands in for the engine: a session at /repo over an in-memory disk. */
 async function fakeSession(
-  $: Parameters<Parameters<typeof test>[1]>[0],
-  on: Parameters<Parameters<typeof test>[1]>[1],
+  $: Parameters<TestBody>[0],
+  on: Parameters<TestBody>[1],
   files: Map<string, string>,
   writes: { path: string; text: string }[],
   links: Map<string, string> = new Map(),
   corrupt: { next: boolean } = { next: false },
+  root: { path: string } = { path: "/repo" },
 ) {
   on("command.register", () => ({ value: { command: "toggle" } }));
+  on("session.root", () => ({ value: root.path }));
   on("session.start", (_, e) => ({ cwd: e.cwd }));
   on("env.get", (_, e) =>
     e.name === "HOME" ? { value: "/home" } : { value: undefined },
@@ -184,6 +188,7 @@ test("a file changed after the press is not written", async ($, on) => {
 test("planFile refuses what it cannot write back exactly", () => {
   const edit = {
     layer: "user",
+    file: USER_FILE,
     section: "skillOverrides",
     key: "commit",
     from: null,
@@ -191,6 +196,10 @@ test("planFile refuses what it cannot write back exactly", () => {
   } as const;
 
   expect(planFile("[]", [edit])).toEqual({ error: "not a JSON object" });
+  // A section that is not an object is not replaced by one.
+  expect(
+    "error" in planFile('{\n  "skillOverrides": [\n    "x"\n  ]\n}\n', [edit]),
+  ).toBe(true);
   expect("error" in planFile("{ broken", [edit])).toBe(true);
   // One-line JSON would come back pretty-printed.
   expect("error" in planFile('{"model":"opus"}\n', [edit])).toBe(true);
@@ -247,5 +256,48 @@ test("a write that reads back wrong is undone", async ($, on) => {
   expect(files.get(PROJECT_FILE)).toBe(before);
   expect(writes.length).toBe(2);
   expect(await ui.find({ type: "Text", text: /restored the old text/ })).toBeDefined();
+  await ui.unmount();
+});
+
+
+test("an unreadable file takes out its own layer, not the pane", async ($, on) => {
+  const files = new Map<string, string>();
+  const writes: { path: string; text: string }[] = [];
+  await fakeSession($, on, files, writes);
+  files.set(USER_FILE, '{\n  "skillOverrides": {\n    "commit": "off"\n  }\n}\n');
+  files.set(PROJECT_FILE, "{ broken");
+
+  const ui = await $.ui.mount({ ...PANE, surface: "terminal" });
+  await ui.press({ key: "tab-skills" });
+  await ui.press({ key: "reload" });
+
+  expect(await ui.find({ type: "Text", text: /unreadable/ })).toBeDefined();
+  expect(await ui.find({ key: "s:commit:project" })).toBeUndefined();
+  await ui.press({ key: "s:commit:local" });
+  await ui.press({ key: "save" });
+  await ui.press({ key: "confirm" });
+
+  expect(writes.map((w) => w.path)).toEqual(["/repo/.claude/settings.local.json"]);
+  await ui.unmount();
+});
+
+test("a change staged before the folder moved is not saved to the new one", async ($, on) => {
+  const files = new Map<string, string>();
+  const writes: { path: string; text: string }[] = [];
+  const root = { path: "/repo" };
+  await fakeSession($, on, files, writes, new Map(), { next: false }, root);
+  files.set(USER_FILE, '{\n  "skillOverrides": {\n    "commit": "off"\n  }\n}\n');
+
+  const ui = await $.ui.mount({ ...PANE, surface: "terminal" });
+  await ui.press({ key: "tab-skills" });
+  await ui.press({ key: "reload" });
+  await ui.press({ key: "s:commit:project" });
+  // /cd to another project, then the pane reloads.
+  root.path = "/other";
+  await ui.press({ key: "reload" });
+
+  expect(await ui.find({ type: "Text", text: /Dropped 1 change/ })).toBeDefined();
+  expect(await ui.find({ key: "save" })).toBeUndefined();
+  expect(writes).toEqual([]);
   await ui.unmount();
 });

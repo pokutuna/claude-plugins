@@ -43,14 +43,14 @@ const messageAtom = atom(
 const snapshotAtom = atom(
   { plugin: "toggle-plugin", key: "snapshot" } as const,
   null,
-  { shape: "snapshot-3" },
+  { shape: "snapshot-4" },
 );
 
 // Changes pressed and not yet saved; the tag guards the stored shape as above.
 const pendingAtom = atom(
   { plugin: "toggle-plugin", key: "pending" } as const,
   [] as Edit[],
-  { shape: "pending-1" },
+  { shape: "pending-2" },
 );
 const reviewingAtom = atom(
   { plugin: "toggle-plugin", key: "isReviewing" } as const,
@@ -97,20 +97,29 @@ async function skillDirs($: $, dir: string): Promise<string[]> {
   return names;
 }
 
-async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
-  const config = await configDir($);
-  const files: Record<Layer, string> = {
+function settingsFiles(config: string, cwd: string): Record<Layer, string> {
+  return {
     user: `${config}/settings.json`,
     // Absolute: `$.fs` resolves a relative path against the process, which
     // need not be the session's folder.
     project: `${cwd}/.claude/settings.json`,
     local: `${cwd}/.claude/settings.local.json`,
   };
-  const layers: Record<Layer, Json> = {
-    user: await readJson($, files.user),
-    project: await readJson($, files.project),
-    local: await readJson($, files.local),
-  };
+}
+
+async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
+  const config = await configDir($);
+  const files = settingsFiles(config, cwd);
+  // A file that does not read takes its own layer out, not the pane.
+  const layers: Record<Layer, Json> = { user: {}, project: {}, local: {} };
+  const broken: Snapshot["broken"] = {};
+  for (const layer of LAYERS) {
+    try {
+      layers[layer] = await readJson($, files[layer]);
+    } catch (error) {
+      broken[layer] = error instanceof Error ? error.message : String(error);
+    }
+  }
 
   // Plugins: installed for the user or for this project, plus any id a layer names.
   const pluginIds = new Set<string>();
@@ -176,22 +185,47 @@ async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
       local: skillValue("local", name),
     }));
 
-  return { cwd, files, plugins, skills };
+  return { cwd, files, plugins, skills, broken };
+}
+
+/** Adds a sentence to the message line. */
+async function note($: $, text: string) {
+  await update($, messageAtom, (prev) =>
+    [prev, text].filter(Boolean).join(". "),
+  );
 }
 
 async function refresh($: $) {
-  const cwd =
-    (await read($, snapshotAtom))?.cwd ?? (await $.env.get("PWD")) ?? ".";
+  // Asked each time: /cd or a worktree move changes it with no session.start.
+  const cwd = await $.session.root();
+  let snapshot: Snapshot;
   try {
-    const snapshot = await loadSnapshot($, cwd);
-    await update($, snapshotAtom, () => snapshot);
+    snapshot = await loadSnapshot($, cwd);
   } catch (error) {
-    await update(
-      $,
-      messageAtom,
-      () => `Failed to read settings: ${String(error)}`,
-    );
+    // No rows rather than the last folder's, which a press would save there.
+    snapshot = {
+      cwd,
+      files: settingsFiles(await configDir($), cwd),
+      plugins: [],
+      skills: [],
+      broken: {},
+    };
+    await note($, `Failed to read settings: ${String(error)}`);
   }
+  await update($, snapshotAtom, () => snapshot);
+
+  let dropped = 0;
+  await update($, pendingAtom, (prev) => {
+    const kept = prev.filter((p) => p.file === snapshot.files[p.layer]);
+    dropped = prev.length - kept.length;
+
+    return kept;
+  });
+  if (dropped > 0)
+    await note(
+      $,
+      `Dropped ${dropped} change(s) staged for another folder's settings`,
+    );
 }
 
 // ---- pending changes -----------------------------------------------------
@@ -200,6 +234,7 @@ async function refresh($: $) {
 async function stage(
   $: $,
   layer: Layer,
+  file: string,
   section: SectionKey,
   key: string,
   from: CellValue,
@@ -211,7 +246,7 @@ async function stage(
 
     return value === from
       ? rest
-      : [...rest, { layer, section, key, from, value }];
+      : [...rest, { layer, file, section, key, from, value }];
   });
   await update($, reviewingAtom, () => false);
   await update($, closeWarnedAtom, () => false);
@@ -231,25 +266,30 @@ async function readText($: $, path: string): Promise<string> {
 /** Writes one file's staged changes, or throws why it did not. */
 async function saveFile($: $, path: string, edits: Edit[]) {
   let target = path;
-  if (await $.fs.exists(path)) {
+  const existed = await $.fs.exists(path);
+  if (existed) {
     // Write through a symlink (the user settings live in dotfiles) instead of
     // replacing it with a plain file.
     const stat = await $.fs.stat(path, { resolve: true });
     if (stat.isLink && stat.realPath) target = stat.realPath;
   }
 
+  // Read just before the write: planFile's check of each pressed key's value
+  // is what refuses a file changed since the pane loaded.
   const original = await readText($, target);
   const plan = planFile(original, edits);
   if ("error" in plan) throw new Error(plan.error);
-
-  if ((await readText($, target)) !== original)
-    throw new Error("changed while saving; reload");
   await $.fs.write(target, plan.text);
 
   const written = await readText($, target);
   if (written !== plan.text) {
-    await $.fs.write(target, original);
-    throw new Error("the file read back differently; restored the old text");
+    // `$.fs` cannot delete, so a file this save created is left as `{}`.
+    if (existed) {
+      await $.fs.write(target, original);
+      throw new Error("the file read back differently; restored the old text");
+    }
+    await $.fs.write(target, "{}\n");
+    throw new Error("the new file read back differently; left it as {}");
   }
 }
 
@@ -262,14 +302,15 @@ async function saveAll($: $) {
   const saved: Layer[] = [];
   let failure: string | null = null;
   for (const layer of LAYERS) {
-    const edits = pending.filter((p) => p.layer === layer);
-    if (edits.length === 0) continue;
     const path = snapshot.files[layer];
+    // An edit for another folder's file is left for refresh() to drop.
+    const edits = pending.filter((p) => p.layer === layer && p.file === path);
+    if (edits.length === 0) continue;
     try {
       await saveFile($, path, edits);
       saved.push(layer);
       await update($, pendingAtom, (prev) =>
-        prev.filter((p) => p.layer !== layer),
+        prev.filter((p) => !(p.layer === layer && p.file === path)),
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
@@ -343,15 +384,19 @@ export const register: Register = (on) => {
       description: "Toggle plugins and skills for this project",
       argumentHint: "[plugins|skills]",
     });
-    await update($, snapshotAtom, (prev) =>
-      prev
-        ? { ...prev, cwd: e.cwd }
-        : {
-            cwd: e.cwd,
-            files: { user: "", project: "", local: "" },
-            plugins: [],
-            skills: [],
-          },
+    // Something to draw until the first refresh(), which reads the folder; a
+    // snapshot already held (a reload) is kept for refresh() to replace.
+    await update(
+      $,
+      snapshotAtom,
+      (prev) =>
+        prev ?? {
+          cwd: e.cwd,
+          files: { user: "", project: "", local: "" },
+          plugins: [],
+          skills: [],
+          broken: {},
+        },
     );
 
     return next(e);
@@ -439,7 +484,9 @@ export const register: Register = (on) => {
                 <Text wrap="truncate-start">
                   {shortPath(home, snapshot.cwd, snapshot.files[layer])}
                   <Text dimColor>
-                    {layer === "user" ? "  (user: all projects)" : `  (${layer})`}
+                    {layer === "user"
+                      ? "  (user: all projects)"
+                      : `  (${layer})`}
                   </Text>
                 </Text>
                 {pending
@@ -448,7 +495,8 @@ export const register: Register = (on) => {
                     <Text key={`review:${editId(p)}`} wrap="truncate-end">
                       {"  "}
                       <Text dimColor>{p.section}.</Text>
-                      {p.key}: {shown(p.from)} → <Text bold>{shown(p.value)}</Text>
+                      {p.key}: {shown(p.from)} →{" "}
+                      <Text bold>{shown(p.value)}</Text>
                     </Text>
                   ))}
               </Box>
@@ -496,7 +544,10 @@ export const register: Register = (on) => {
             key="reload"
             hotkey="r"
             label="Reload"
-            onPress={() => refresh($)}
+            onPress={async () => {
+              await update($, messageAtom, () => null);
+              await refresh($);
+            }}
           />
         </Box>
         <Text dimColor wrap="truncate-start">
@@ -507,6 +558,9 @@ export const register: Register = (on) => {
             {layer.padEnd(8)}
             {shortPath(home, snapshot.cwd, snapshot.files[layer])}
             {layer === "user" ? "  (all projects)" : ""}
+            {snapshot.broken[layer] !== undefined && (
+              <Text color="error">{`  unreadable: ${snapshot.broken[layer]}`}</Text>
+            )}
           </Text>
         ))}
         <Text wrap="truncate-end">
@@ -555,10 +609,13 @@ export const register: Register = (on) => {
       </Box>
     );
 
-    const fit = (name: string, width: number) =>
-      name.length > width
-        ? `${name.slice(0, Math.max(1, width - 1))}…`
+    const fit = (name: string, width: number) => {
+      if (width <= 0) return "";
+
+      return name.length > width
+        ? `${name.slice(0, width - 1)}…`
         : name.padEnd(width);
+    };
 
     // The name column takes what the mark and the three buttons leave.
     // Each layer's cell is as wide as its name ("project"), so the header reads
@@ -630,7 +687,7 @@ export const register: Register = (on) => {
           {nameCells(name, width, nameColor)}
           {LAYERS.map((layer) => (
             <Box key={`${key}:${layer}:cell`} width={layer.length}>
-              {isLocked(layer) ? (
+              {layer in snapshot.broken || isLocked(layer) ? (
                 <Text dimColor> - </Text>
               ) : (
                 <Button
@@ -640,6 +697,7 @@ export const register: Register = (on) => {
                     stage(
                       $,
                       layer,
+                      snapshot.files[layer],
                       sectionKey,
                       name,
                       file[layer],
@@ -685,7 +743,9 @@ export const register: Register = (on) => {
               // Installed for this project alone: a user value would reach no
               // other project, so the user cell is not offered.
               (layer) =>
-                layer === "user" && p.installed === "project" && p.user === null,
+                layer === "user" &&
+                p.installed === "project" &&
+                p.user === null,
             ),
           )}
         </Box>

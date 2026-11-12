@@ -39,13 +39,14 @@ export function shown(value: CellValue): string {
 // ---- saving --------------------------------------------------------------
 //
 // Each file is saved on its own, and refused rather than risked. planFile
-// checks 1-4; saveFile in register.tsx does 5 and 6 around the write.
+// checks 1-5 on the text read just before the write; saveFile in
+// register.tsx does 6 after it.
 //   1. the file must parse as a JSON object (a missing or empty file is {})
-//   2. every staged key must still hold the value it held when pressed
-//   3. the file must print back to its own text, so the write changes no
+//   2. each staged section, when present, must be an object
+//   3. every staged key must still hold the value it held when pressed
+//   4. the file must print back to its own text, so the write changes no
 //      formatting, only the staged keys
-//   4. the new object must differ from the old in the staged keys alone
-//   5. the text is read again just before writing and must be unchanged
+//   5. the new object must differ from the old in the staged keys alone
 //   6. the written text is read back; on a mismatch the old text is restored
 
 /** What a file becomes after its staged changes, or why it may not. */
@@ -63,6 +64,12 @@ export function planFile(
     }
     if (!isObject(value)) return { error: "not a JSON object" };
     before = value;
+  }
+
+  for (const e of edits) {
+    const held = before[e.section];
+    if (held !== undefined && !isObject(held))
+      return { error: `${e.section} is not an object; edit it by hand` };
   }
 
   for (const e of edits) {

@@ -79,11 +79,15 @@ Run `/reload-plugins` after saving plugin changes. Skill changes need no reload.
 Each settings file is saved on its own. A file is left untouched when any check fails:
 
 1. It must parse as a JSON object. A missing or empty file counts as `{}`.
-2. Each staged key must still hold the value it held when you pressed the cell. If another process changed it, reload and press again.
-3. Parsing the file and printing it back must give the same text. Indentation and the final newline follow the file, so a file in any other layout is refused rather than reformatted.
-4. The new content must differ from the old only in the staged keys.
-5. The file is read again just before the write and must not have changed.
-6. The file is read back after the write. If it differs from what was written, the old text is written back.
+2. `enabledPlugins` and `skillOverrides`, when present, must be objects.
+3. Each staged key must still hold the value it held when you pressed the cell. The file is read for this just before the write. If another process changed the key, reload and press again.
+4. Parsing the file and printing it back must give the same text. Indentation and the final newline follow the file, so a file in any other layout is refused rather than reformatted.
+5. The new content must differ from the old only in the staged keys.
+6. The file is read back after the write. If it differs from what was written, the old text is written back. A file the save created is left as `{}`, as the mod API cannot delete files.
+
+A file that does not parse takes only its own layer out of the pane: its path is marked unreadable and its cells are not offered. The other layers still work.
+
+Each staged change remembers its file. When the project folder changes during the session (`/cd`, a worktree move), the next reload drops the changes staged for the old folder instead of saving them to the new one.
 
 A symlink, such as `~/.claude/settings.json` kept in a dotfiles repository, is written through, so the link stays.
 
