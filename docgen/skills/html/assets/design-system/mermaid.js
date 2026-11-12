@@ -22,11 +22,18 @@
     };
     var surface = color('--dg-surface'), alt = color('--dg-surface-alt');
     var ink = color('--dg-ink-body'), border = color('--dg-border');
+    // The dark border token is tuned for frames; as a 1px edge it nearly vanishes, so lift edges to muted
+    var line = isDark() ? color('--dg-muted') : border;
     probe.remove();
     return {
       startOnLoad: false,
       securityLevel: 'strict',
       theme: 'base',
+      // ELK routes edges orthogonally and minimizes crossings; dagre tangles once a graph has cross edges.
+      // Mermaid 12 already defaults to it, but pin it so a version change cannot silently fall back.
+      layout: 'elk',
+      // The default `neo` look adds node shadows the flat design system does not use
+      look: 'classic',
       darkMode: isDark(),
       fontFamily: v('--dg-font-sans'),
       flowchart: { htmlLabels: true, padding: 12 },
@@ -42,8 +49,8 @@
         tertiaryColor: alt,
         tertiaryTextColor: ink,
         tertiaryBorderColor: border,
-        lineColor: border,
-        arrowheadColor: border,
+        lineColor: line,
+        arrowheadColor: line,
         textColor: ink,
         noteBkgColor: alt,
         noteTextColor: ink,

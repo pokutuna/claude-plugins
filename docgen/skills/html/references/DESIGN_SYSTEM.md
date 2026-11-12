@@ -73,6 +73,16 @@
 - `table` は `table-layout: fixed` で列幅を確定させ、狭い領域でも溢れさせない
 - ヘッダーは固定のテーマボタンと重ならないよう `padding-right: 40px`
 - mermaid.js は `document.fonts.ready` を待ってから描画する。Web フォント確定前に測ると文字が箱から溢れる
+- Mermaid の配置は `layout: 'elk'`、見た目は `look: 'classic'` に固定する。dagre は横断する辺が増えると
+  曲線が交差して絡まるが、ELK は辺を直交に引き、交差を減らすようにノードを並べる。Mermaid 12 の既定も
+  ELK だが、版を替えたときに dagre へ黙って戻らないよう明示する。既定の `neo` はノードに影を付け、
+  影を使わないデザインシステムと合わないので `classic` にする。ELK のノード配置
+  (`elk.nodePlacementStrategy`) は既定の Brandes-Koepf から変えても改善せず、`mergeEdges` は
+  辺が合流して行き先を追いにくくなるので使わない
+- Mermaid の辺の色は、ライトでは `--dg-border`、ダークでは `--dg-muted` にする。ダークの `--dg-border` は
+  枠線向けの暗い色で、1px の辺と矢印にすると背景に埋もれる
+- ELK は非同期に配置を計算するため、描画の完了が load より遅れる。`screenshot.sh` は
+  `--virtual-time-budget` で描画を待ってから撮る。付けないと図が空の枠で撮れる
 - theme.js は保存値がなければ OS 設定に従う。CSS の直後に同期で読み、描画前に `data-theme` を確定させる
 - `figure > :not(figcaption)` が表示面。図の中身が SVG でも画像でも Mermaid でも同じ枠と余白になり、
   部品ごとの指定が要らない。SVG の線と文字は `currentColor` に追随するので、書き手が色を指定しなければ

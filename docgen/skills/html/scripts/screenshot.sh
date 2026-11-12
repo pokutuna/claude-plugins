@@ -9,6 +9,7 @@
 # --dark forces the dark theme by stamping data-theme="dark" on a temporary copy,
 # so the result does not depend on the OS setting.
 # --no-network blocks every host, to prove an --offline bundle needs nothing from the web.
+# A virtual time budget lets async work (Mermaid's ELK layout) finish before the capture.
 set -euo pipefail
 
 INPUT=""; DARK=0; NONET=0; WIDTH=1280; HEIGHT=4000; OUT=""
@@ -58,7 +59,7 @@ rm -f "$OUT"
 "$CHROME" --headless=new --disable-gpu --hide-scrollbars \
   --user-data-dir="$PROFILE" \
   --window-size="${WIDTH},${HEIGHT}" \
-  --timeout=8000 ${EXTRA[@]+"${EXTRA[@]}"} \
+  --timeout=8000 --virtual-time-budget=10000 ${EXTRA[@]+"${EXTRA[@]}"} \
   --screenshot="$OUT" "file://$TARGET" >/dev/null 2>&1 &
 PID=$!
 for _ in $(seq 1 60); do
