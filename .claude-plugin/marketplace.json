@@ -70,7 +70,7 @@
     },
     {
       "name": "toggle-plugin",
-      "description": "Toggle Claude Code plugins enabled/disabled per project via settings.json",
+      "description": "Turn plugins (enabledPlugins) and skills (skillOverrides) on or off per settings layer, in a pane. A mod: /toggle opens it, changes are staged and saved together after a review. Needs a Claude Code build with mods.",
       "source": "./toggle-plugin",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/toggle-plugin"
     },

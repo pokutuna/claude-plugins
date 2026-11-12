@@ -46,7 +46,7 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [side-fork](./side-fork/) | Fork session and open original in a new tmux pane (new pane = experimental branch) |
 | [kaggle-helper](./kaggle-helper/) | Kaggle discussion and notebook analysis for competition research |
 | [things-app](./things-app/) | Read and update tasks in Things 3 via JXA |
-| [toggle-plugin](./toggle-plugin/) | Toggle plugins enabled/disabled per project |
+| [toggle-plugin](./toggle-plugin/) | Turn plugins and skills on or off per settings layer in a pane (a mod) |
 | [github-copilot](./github-copilot/) | GitHub Copilot CLI integration — second AI opinion and PR review requests |
 | [codex](./codex/) | OpenAI Codex CLI integration for autonomous second opinions and code review |
 | [octave-notification](./octave-notification/) | Musical scale notification sounds per tmux window (3 octaves, 21 notes) |

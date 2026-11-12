@@ -1,7 +1,7 @@
 {
   "name": "toggle-plugin",
-  "description": "Toggle Claude Code plugins enabled/disabled per project via .claude/settings.json",
-  "version": "0.1.2",
+  "description": "Turn plugins (enabledPlugins) and skills (skillOverrides) on or off per settings layer, in a pane. A mod: /toggle opens it, changes are staged and saved together after a review. Needs a Claude Code build with mods.",
+  "version": "0.2.0",
   "author": {
     "name": "pokutuna"
   },
@@ -9,8 +9,10 @@
   "license": "MIT",
   "keywords": [
     "plugins",
+    "skills",
     "settings",
     "toggle",
-    "project"
-  ]
+    "mod"
+  ],
+  "types": "./types/index.d.ts"
 }
