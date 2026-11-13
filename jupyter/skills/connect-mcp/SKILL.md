@@ -17,13 +17,12 @@ allowed-tools:
 
 # Jupyter MCP
 
-リモートの Jupyter Server (RunPod / GCP / 自前サーバーなどクラウド非依存) を、Datalayer 製 [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server) 経由でプロジェクトに接続する。
+リモートの Jupyter Server を [jupyter-mcp-server](https://github.com/datalayer/jupyter-mcp-server) 経由でプロジェクトに接続する。
 
-既定は **hybrid 構成**: notebook はプロジェクトディレクトリのローカルファイル、カーネルだけリモート (GPU) で動く。VS Code の "connect to remote Jupyter server" と同じ使い勝手で、pod を消しても notebook と実行結果は手元に残る。上流の [configuration docs](https://github.com/datalayer/jupyter-mcp-server/blob/main/docs/docs/operations/configuration/index.mdx) の advanced 構成 (`DOCUMENT_URL` = ローカル / `CODE_SANDBOX_URL` = リモート) をそのまま使う。
+- **hybrid (既定)**: notebook はローカル (doc server、`DOCUMENT_URL`)、カーネルはリモート (`CODE_SANDBOX_URL`)
+- **`--remote-notebook`**: notebook もリモートに置く (`JUPYTER_URL`)
 
-`--remote-notebook` を付けると notebook もリモート側に置く単一サーバー構成 (`JUPYTER_URL`、上流の simplified 構成) になる。
-
-設定は2層: `.mcp.json` には wrapper (`~/.config/jupyter-mcp/wrapper.sh`) を指す不変エントリのみ、URL/token は state ファイル (`~/.config/jupyter-mcp/current.env`) に置き wrapper が起動時に読む。接続先の変更は state 更新 + **`/mcp` から reconnect** だけで反映され、セッション再起動が要るのは初回のエントリ追加時のみ。
+`.mcp.json` には wrapper (`~/.config/jupyter-mcp/wrapper.sh`) を指すエントリだけを書き、URL/token は wrapper が起動時に `~/.config/jupyter-mcp/current.env` から読む。接続先を変えても `/mcp` の reconnect で反映される。
 
 <ARGUMENTS>
 $ARGUMENTS
@@ -33,96 +32,64 @@ $ARGUMENTS
 
 | 操作 | 入力 | 動作 |
 |---|---|---|
-| **connect** (既定) | SSH コマンド or URL | 下記 Connect 手順 |
-| **status** | `status`, 「状態確認」 | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh` を実行し要約 (構成・doc server・両サーバーの疎通) |
-| **disconnect** | `disconnect`, 「切断」 | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/stop-tunnel.sh [port\|all]` を実行 (既定 all)。ローカル doc server も停止する。`.mcp.json` は残る |
+| connect (既定) | SSH コマンド or URL | 下記 Connect |
+| status | `status`, 「状態確認」 | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/status.sh` を実行して要約 |
+| disconnect | `disconnect`, 「切断」 | `bash ${CLAUDE_PLUGIN_ROOT}/scripts/stop-tunnel.sh [port\|all]` (既定 all)。doc server も止める。`.mcp.json` は残す |
 
-connect のオプション: `--token` / `--remote-port` (既定 8888) / `--local-port` (既定 48888) / `--remote-notebook` (notebook もリモートに置く) / `--doc-root DIR` (ローカル doc server が公開するディレクトリ、既定はプロジェクトルート)。
+オプション: `--token` / `--remote-port` (既定 8888) / `--local-port` (既定 48888) / `--remote-notebook` / `--doc-root DIR` (doc server の公開ディレクトリ、既定はプロジェクトルート)。
 
-token の解決順: (1) 明示指定 → (2) URL の `?token=xxx` を抽出 (URL はオリジン部分だけ使う) → (3) SSH なら `ssh ... 'echo $JUPYTER_TOKEN'`、空なら `ssh ... 'jupyter server list'` から抽出 → (4) token なしで疎通確認し 401/403 ならユーザーに確認。
+token の解決順: 明示指定 → URL の `?token=` (URL はオリジンだけ使う) → SSH なら `ssh ... 'echo $JUPYTER_TOKEN'`、空なら `jupyter server list` の出力 → token なしで疎通確認し、401/403 ならユーザーに聞く。
 
 ## Connect
 
-### 1. Resolve remote URL
+1. **リモート URL を決める**。URL ならそのまま使う。SSH コマンドならトンネルを張る:
 
-SSH コマンドの場合:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-tunnel.sh "<ssh command>" [remote_port] [local_port]
+   ```
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup-tunnel.sh "<ssh command>" [remote_port] [local_port]
-```
+   `JUPYTER_URL=` を出力する。`BatchMode=yes` なので鍵認証のみ。失敗したら stderr の SSH ログから原因を伝える。
 
-`-N -L` と keep-alive を付与して切り離しバックグラウンド起動し、`JUPYTER_URL=` / `TUNNEL_PID=` / `LOG_FILE=` を出力する。同じ local port の既存トンネルは張り替え、他プロセス使用中なら空きポートにフォールバック。失敗時は stderr の SSH ログから原因を報告する (`BatchMode=yes` のためパスワード認証は不可、鍵認証を案内)。
+2. **疎通確認**。401/403 なら token、接続不可ならリモートの Jupyter 起動を確認する:
 
-URL の場合はそのまま使う。
+   ```bash
+   curl -fsS --max-time 10 -H "Authorization: token <TOKEN>" "<REMOTE_URL>/api/kernels"
+   ```
 
-### 2. Verify connectivity
+3. **doc server を起動** (hybrid のみ)。`DOCUMENT_URL=` / `DOCUMENT_TOKEN=` を出力する。同じ root なら再利用する。初回は uvx の環境構築に 1 分ほどかかる:
 
-```bash
-curl -fsS --max-time 10 -H "Authorization: token <TOKEN>" "<REMOTE_URL>/api/kernels"
-```
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/doc-server.sh start "<DOC_ROOT>"
+   ```
 
-401/403 なら token を確認。接続不可ならリモートで Jupyter が起動しているか確認する。
+4. **設定を書く**。token がなければ `""` を渡す。`--remote-notebook` のときは末尾 2 引数を省く:
 
-### 3. Start the local document server (hybrid 既定; `--remote-notebook` なら飛ばす)
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-config.sh "<REMOTE_URL>" "<TOKEN>" .mcp.json "<DOCUMENT_URL>" "<DOCUMENT_TOKEN>"
+   ```
 
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/doc-server.sh start "<DOC_ROOT>"
-```
-
-`<DOC_ROOT>` は `--doc-root` があればその値、なければプロジェクトルート。`jupyter-collaboration` 入りの jupyter-server を uvx で起動し (ローカル venv は不要・汚さない)、`DOCUMENT_URL=` / `DOCUMENT_TOKEN=` を出力する。同じ root で起動済みならそれを再利用し、別 root なら張り替える。初回は uvx の環境構築で 1 分ほどかかる。
-
-出力の `DOCUMENT_URL` / `DOCUMENT_TOKEN` を次の手順に渡す。
-
-### 4. Update config
-
-hybrid (既定):
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-config.sh "<REMOTE_URL>" "<TOKEN>" .mcp.json "<DOCUMENT_URL>" "<DOCUMENT_TOKEN>"
-```
-
-`--remote-notebook` のとき:
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/update-config.sh "<REMOTE_URL>" "<TOKEN>" .mcp.json
-```
-
-token 省略時は `""`。最終行で案内を分岐:
-
-- **`ENTRY_ADDED`** (初回): セッション再起動と MCP 接続の承認が必要
-- **`ENTRY_UNCHANGED`**: **`/mcp` から jupyter-mcp-server を reconnect すれば反映される** (再起動不要)
+   最終行が `ENTRY_ADDED` ならセッション再起動と MCP の承認、`ENTRY_UNCHANGED` なら `/mcp` から reconnect するよう案内する。
 
 ## Known limitations
 
-接続後に案内が必要になったら伝える:
+問題が起きたときに伝える:
 
-- **notebook 系ツールには `jupyter-collaboration` が必要**: hybrid では doc server が uvx で入れるので満たされている。`--remote-notebook` の場合はリモート側に拡張が必要で、`use_notebook` 等が `/api/collaboration/session/...` の 404 で失敗したら入っていない (RunPod の素のテンプレ等)。(a) hybrid (既定) に切り替える、(b) notebook に保存されない `execute_code` で代替、(c) リモートに `pip install jupyter-collaboration` して Jupyter プロセスを再起動、のいずれかを案内する
-- **JupyterLab UI で開くと kernel 選択が出る**: MCP_SERVER モードは notebook↔kernel の Jupyter session を登録しないため。ダイアログで新しい kernel を選ぶと2つ目が起動して状態が分かれる。MCP と同じ状態を触りたければ "Use existing kernel" で稼働中の kernel を選ぶよう案内する
-- **hybrid には jupyter-mcp-server 1.5.2 以降が必要**: それより前は contents 系操作がリモート側に向く上流バグ ([#351](https://github.com/datalayer/jupyter-mcp-server/pull/351) で修正) のため動かない。wrapper は `@latest` なので通常は満たされる。`use_notebook` が `not found in jupyter server` や `Unknown sandbox variant` で失敗したら、解決された版が古い可能性がある:
+- **`--remote-notebook` にはリモート側の `jupyter-collaboration` が必要**: ないと、セル操作が `/api/collaboration/session/...` の 404 で失敗する (`use_notebook` は成功する)。hybrid に切り替える、`execute_code` で代替する、リモートに `pip install jupyter-collaboration` して Jupyter を再起動する、のいずれかを案内する
+- **JupyterLab UI で開くと kernel 選択が出る**: MCP と同じ状態を触るなら "Use existing kernel" を選ぶ。新しい kernel を選ぶと状態が分かれる
+- **hybrid には jupyter-mcp-server 1.5.2 以降が必要**: `use_notebook` が `not found in jupyter server` や `Unknown sandbox variant` で失敗したら版を確認する:
 
   ```bash
   uvx --from jupyter-mcp-server python -c "import jupyter_mcp_server as m; print(m.__version__)"
   ```
 
-  1.5.2 未満なら uv の `exclude-newer` (`~/.config/uv/uv.toml` や `UV_EXCLUDE_NEWER`) が新しい版を候補から外している。`@latest` は「その制約下での最新」を取るので `--refresh` では変わらない。一時的に回避するなら該当パッケージだけカットオフを上書きする (依存の `code-sandboxes` も対象):
-
-  ```bash
-  uvx --exclude-newer-package jupyter-mcp-server=<date> \
-      --exclude-newer-package code-sandboxes=<date> \
-      --from "jupyter-mcp-server>=1.5.2" jupyter-mcp-server
-  ```
-
-  ローリング設定なら時間経過で自然に解消するので、急がなければ待つのでよい
-- **notebook のパスは doc server の root からの相対**: `use_notebook` に渡すのはプロジェクトルート起点の相対パス (`experiments/foo.ipynb` など)。root 外のファイルは扱えないので、別ディレクトリを使うなら `--doc-root` で起動し直す
-- **リモートに置いたデータとの参照ずれ**: カーネルはリモートで動くので、notebook 内の相対パスはリモート側の cwd を指す。データセットはリモートに置き、絶対パスか `execute_code` で確認する
+  古ければ uv の `exclude-newer` が原因。急ぐなら `uvx --exclude-newer-package jupyter-mcp-server=<date> --exclude-newer-package code-sandboxes=<date> --from "jupyter-mcp-server>=1.5.2" jupyter-mcp-server` で回避する
+- **パスの基準が 2 つある**: `use_notebook` のパスは doc server の root からの相対で、root 外は扱えない (`--doc-root` で起動し直す)。notebook 内の相対パスと `list_files` はリモート側を指すので、データセットはリモートに置く
 
 ## Examples
 
 ```
 /jupyter:connect-mcp ssh -p 22078 root@203.0.113.10 -i ~/.ssh/runpod --token abc123
-/jupyter:connect-mcp https://abcdef-8888.proxy.runpod.net/?token=abc123
 /jupyter:connect-mcp https://abcdef-8888.proxy.runpod.net/?token=abc123 --remote-notebook
 /jupyter:connect-mcp status
 /jupyter:connect-mcp disconnect
-RunPod の pod を作り直したので jupyter 繋ぎ直して: ssh -p 22079 root@203.0.113.11 -i ~/.ssh/runpod
 ```

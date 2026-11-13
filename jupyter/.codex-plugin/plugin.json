@@ -1,6 +1,6 @@
 {
   "name": "jupyter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Run local notebooks on a remote Jupyter Server's kernel (RunPod, GCP, self-hosted) via jupyter-mcp-server, with SSH tunnel support",
   "author": {
     "name": "pokutuna"
