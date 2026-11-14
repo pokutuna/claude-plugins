@@ -56,7 +56,7 @@ local   .claude/settings.local.json
 | ` - ` | not offered (the user cell of a plugin installed for this project alone, or a layer whose file is unreadable) |
 | ` ? ` | the layer holds a value the pane does not know, so it is left alone; edit it by hand |
 
-The left mark is the value in effect: local over project over user. A value from `--settings`, managed settings, or the repository root's `settings.local.json` (see above) wins over all three; the pane says how many rows have one, shows it as the left mark, and cannot change it. A skill name in the project color is not one of your own skills or command files.
+The left mark is the value in effect: local over project over user. A value from `--settings`, managed settings, or the repository root's `settings.local.json` (see above) wins over all three; the pane says how many rows have one, shows it as the left mark, and cannot change it. A skill name in another color and followed by `(project)` is not one of your own skills or command files: it comes from this project.
 
 | Key | Action |
 | --- | --- |

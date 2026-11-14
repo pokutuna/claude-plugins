@@ -508,6 +508,8 @@ test("command files and what the session loaded elsewhere are listed", async ($,
   await ui.press({ key: "tab-skills" });
   await ui.press({ key: "refresh" });
   expect(await ui.find({ key: "s:deploy:local" })).toBeDefined();
+  // Named as the project's, not by a color alone.
+  expect(await ui.find({ type: "Text", text: /deploy \(project\)/ })).toBeDefined();
   expect(await ui.find({ key: "s:frontend:component:local" })).toBeDefined();
   expect(await ui.find({ key: "s:anthropic-skills:pdf:local" })).toBeDefined();
   expect(await ui.find({ key: "s:docgen:html:local" })).toBeUndefined();

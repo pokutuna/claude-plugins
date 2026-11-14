@@ -67,7 +67,9 @@ const closeWarnedAtom = atom(
   false,
 );
 
-/** The name color of a skill or command that is not the user's own. */
+/** Written after the name of a skill or command that is not the user's own. */
+const PROJECT_TAG = " (project)";
+/** The color of such a name. */
 const PROJECT_COLOR = "suggestion";
 
 type $ = EngineInterface;
@@ -753,8 +755,7 @@ export const register: Register = (on) => {
             <Text>
               {"  "}
               <Text color="warning">[n]</Text> name-only{" "}
-              <Text color="warning">[u]</Text> user-invocable-only{"  "}
-              <Text color={PROJECT_COLOR}>name</Text> project
+              <Text color="warning">[u]</Text> user-invocable-only
             </Text>
           )}
         </Text>
@@ -811,14 +812,21 @@ export const register: Register = (on) => {
 
     // Splits "name@market" into the name and a dim "@market", cutting the
     // market first so the name stays readable.
-    const nameCells = (label: string, width: number, color?: string) => {
-      const at = label.indexOf("@");
-      if (at < 0)
+    // A tag is kept whole after the name, which is cut to leave it room.
+    const nameCells = (label: string, width: number, tag = "") => {
+      if (tag && width > tag.length + 1) {
+        const room = width - tag.length;
+        const name = label.length > room ? fit(label, room) : label;
+
         return (
-          <Text color={color} wrap="truncate-end">
-            {fit(label, width)}
+          <Text wrap="truncate-end">
+            <Text color={PROJECT_COLOR}>{name}</Text>
+            <Text dimColor>{tag.padEnd(width - name.length)}</Text>
           </Text>
         );
+      }
+      const at = label.indexOf("@");
+      if (at < 0) return <Text wrap="truncate-end">{fit(label, width)}</Text>;
       const name = label.slice(0, at);
       if (name.length >= width)
         return <Text wrap="truncate-end">{fit(name, width)}</Text>;
@@ -862,7 +870,8 @@ export const register: Register = (on) => {
       next: (layer: Layer, current: T | null) => T | null;
       /** A cell that would change nothing, so is not offered. */
       isPointless?: (layer: Layer) => boolean;
-      nameColor?: string;
+      /** Written dim after the name. */
+      tag?: string;
     }) => {
       const { values, changed } = staged(r.section, r.name, r.file);
       // Why a layer's cell is not a button: "?" holds a value the pane does
@@ -880,7 +889,7 @@ export const register: Register = (on) => {
             r.mark(r.file.above ?? effective(values) ?? r.fallback),
             true,
           )}
-          {nameCells(r.name, r.width, r.nameColor)}
+          {nameCells(r.name, r.width, r.tag)}
           {LAYERS.map((layer) => (
             <Box key={`${r.key}:${layer}:cell`} width={layer.length}>
               {closed(layer) !== null ? (
@@ -964,7 +973,11 @@ export const register: Register = (on) => {
       );
     }
 
-    const width = nameWidth(snapshot.skills.map((s) => s.name));
+    const width = nameWidth(
+      snapshot.skills.map(
+        (s) => s.name + (s.origin === "project" ? PROJECT_TAG : ""),
+      ),
+    );
 
     return (
       <Box flexDirection="column">
@@ -981,7 +994,7 @@ export const register: Register = (on) => {
             mark: skillMark,
             fallback: "on",
             next: (_, current) => nextSkillValue(current),
-            nameColor: s.origin === "project" ? PROJECT_COLOR : undefined,
+            tag: s.origin === "project" ? PROJECT_TAG : undefined,
           }),
         )}
       </Box>
