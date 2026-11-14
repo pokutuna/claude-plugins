@@ -20,16 +20,28 @@ export type PluginRow = {
   user: boolean | null;
   project: boolean | null;
   local: boolean | null;
+  /** Layers holding a value the pane cannot show or cycle; their cells are not offered. */
+  odd: Layer[];
+  /** What `--settings` or managed settings set, which wins over every layer. */
+  above: boolean | null;
 };
 
 /** One skill and its `skillOverrides` value in each layer (null: not set). */
 export type SkillRow = {
   name: string;
-  /** Where it was found: a skills folder, or only as a key in skillOverrides. */
-  origin: "user" | "project" | "override";
+  /**
+   * Where it was found: the user's skills or commands, anything else the
+   * session loaded (the project's), the skills claude.ai synced, or only as
+   * a key in skillOverrides.
+   */
+  origin: "user" | "project" | "synced" | "override";
   user: SkillMode | null;
   project: SkillMode | null;
   local: SkillMode | null;
+  /** Layers holding a value the pane cannot show or cycle; their cells are not offered. */
+  odd: Layer[];
+  /** What `--settings` or managed settings set, which wins over every layer. */
+  above: SkillMode | null;
 };
 
 export type Snapshot = {
@@ -40,6 +52,8 @@ export type Snapshot = {
   skills: SkillRow[];
   /** Layers whose file could not be read, and why; their cells are not offered. */
   broken: Partial<Record<Layer, string>>;
+  /** What could not be read beside the layers, shown above the rows. */
+  warnings: string[];
 };
 
 /** A change pressed in the pane and not yet saved. */
@@ -56,10 +70,12 @@ export type Edit = {
 
 declare module "claude-code" {
   interface PluginState {
-    "toggle-plugin": {
+    "toggle-plugins": {
       tab: Tab;
-      /** The last change, or failure, shown at the top of the pane. */
+      /** The last change, shown at the top of the pane. */
       message: string | null;
+      /** What the last save could not do, shown in the error color. */
+      failure: string | null;
       snapshot: Shaped<Snapshot | null>;
       pending: Shaped<Edit[]>;
       /** True while the pane shows the changes and asks to save them. */

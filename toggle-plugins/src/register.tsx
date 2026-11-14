@@ -21,6 +21,7 @@ import {
   nextPluginValue,
   nextSkillValue,
   planFile,
+  sameJson,
   section,
   shortPath,
   shown,
@@ -28,40 +29,45 @@ import {
 import type { Json } from "./logic";
 
 const PANE = "toggle";
-const COMMAND = "toggle";
+const COMMAND = "toggle-plugins";
 
 const tabAtom = atom(
-  { plugin: "toggle-plugin", key: "tab" } as const,
+  { plugin: "toggle-plugins", key: "tab" } as const,
   "plugins" as Tab,
 );
 const messageAtom = atom(
-  { plugin: "toggle-plugin", key: "message" } as const,
+  { plugin: "toggle-plugins", key: "message" } as const,
+  null as string | null,
+);
+// What a save could not do, drawn apart from `message` in the error color.
+const failureAtom = atom(
+  { plugin: "toggle-plugins", key: "failure" } as const,
   null as string | null,
 );
 // Change the tag when Snapshot's fields change: it declines what an earlier
 // version stored, which outlives a reload.
 const snapshotAtom = atom(
-  { plugin: "toggle-plugin", key: "snapshot" } as const,
+  { plugin: "toggle-plugins", key: "snapshot" } as const,
   null,
-  { shape: "snapshot-4" },
+  { shape: "snapshot-5" },
 );
 
 // Changes pressed and not yet saved; the tag guards the stored shape as above.
 const pendingAtom = atom(
-  { plugin: "toggle-plugin", key: "pending" } as const,
+  { plugin: "toggle-plugins", key: "pending" } as const,
   [] as Edit[],
   { shape: "pending-2" },
 );
 const reviewingAtom = atom(
-  { plugin: "toggle-plugin", key: "isReviewing" } as const,
+  { plugin: "toggle-plugins", key: "isReviewing" } as const,
   false,
 );
 const closeWarnedAtom = atom(
-  { plugin: "toggle-plugin", key: "isCloseWarned" } as const,
+  { plugin: "toggle-plugins", key: "isCloseWarned" } as const,
   false,
 );
 
-/** The name color of a skill that lives in this project's .claude/skills. */
+/** The name color of a skill or command that is not the user's own. */
 const PROJECT_COLOR = "suggestion";
 
 type $ = EngineInterface;
@@ -97,6 +103,66 @@ async function skillDirs($: $, dir: string): Promise<string[]> {
   return names;
 }
 
+/** The command names of a commands folder: `a/b.md` is `a:b`. */
+async function commandFiles($: $, dir: string, prefix = ""): Promise<string[]> {
+  if (!(await $.fs.exists(dir))) return [];
+  const names: string[] = [];
+  for (const entry of await $.fs.list(dir)) {
+    if (entry.name.startsWith(".")) continue;
+    if (entry.kind === "dir") {
+      // Four folders deep is past any real layout, and stops a loop.
+      if (prefix.split(":").length <= 4)
+        names.push(
+          ...(await commandFiles(
+            $,
+            `${dir}/${entry.name}`,
+            `${prefix}${entry.name}:`,
+          )),
+        );
+    } else if (entry.name.endsWith(".md")) {
+      names.push(`${prefix}${entry.name.slice(0, -3)}`);
+    }
+  }
+
+  return names;
+}
+
+/** The prefix of a claude.ai synced skill's full name. */
+const SYNCED = "anthropic-skills:";
+
+/** The skills claude.ai synced, by the short names the session lists. */
+async function syncedSkills($: $, config: string): Promise<Set<string>> {
+  const dir = `${config}/skills/synced`;
+  const names = new Set<string>();
+  if (!(await $.fs.exists(dir))) return names;
+  for (const entry of await $.fs.list(dir)) {
+    if (entry.kind === "file") continue;
+    for (const name of await skillDirs($, `${dir}/${entry.name}`))
+      names.add(name);
+  }
+
+  return names;
+}
+
+/**
+ * The repository root's settings.local.json when the session's folder is not
+ * that root (a subfolder, or a worktree, whose root is the original
+ * repository), else null. The engine reads it beside the session folder's
+ * and lets it win; the pane shows it and edits the session folder's alone.
+ */
+async function rootLocal($: $, cwd: string): Promise<string | null> {
+  try {
+    const repo = await $.session.repo();
+    const home = (await $.env.get("HOME")) ?? "";
+    if (repo && repo.root !== cwd && repo.root !== home)
+      return `${repo.root}/.claude/settings.local.json`;
+  } catch {
+    // No answer: the session folder's file alone.
+  }
+
+  return null;
+}
+
 function settingsFiles(config: string, cwd: string): Record<Layer, string> {
   return {
     user: `${config}/settings.json`,
@@ -107,9 +173,14 @@ function settingsFiles(config: string, cwd: string): Record<Layer, string> {
   };
 }
 
-async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
+async function loadSnapshot(
+  $: $,
+  cwd: string,
+  files: Record<Layer, string>,
+  above: string | null,
+): Promise<Snapshot> {
   const config = await configDir($);
-  const files = settingsFiles(config, cwd);
+  const warnings: string[] = [];
   // A file that does not read takes its own layer out, not the pane.
   const layers: Record<Layer, Json> = { user: {}, project: {}, local: {} };
   const broken: Snapshot["broken"] = {};
@@ -121,13 +192,50 @@ async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
     }
   }
 
+  // What wins over the three layers, highest first; the pane cannot change it.
+  const upper: Json[] = [];
+  for (const source of ["policy", "flag"] as const) {
+    try {
+      const held: unknown = await $.settings.read({ source });
+      if (isObject(held)) upper.push(held);
+    } catch {
+      // A build without the read: the left mark shows the three layers alone.
+    }
+  }
+  // The repository root's local file wins over the session folder's.
+  if (above !== null) {
+    try {
+      upper.push(await readJson($, above));
+    } catch {
+      warnings.push(`${above} is unreadable; its values are not shown`);
+    }
+  }
+  const aboveValue = (sectionKey: SectionKey, key: string): unknown =>
+    upper.map((u) => section(u, sectionKey)[key]).find((v) => v !== undefined);
+  /** The layers where `key` holds something `read` does not take. */
+  const oddLayers = (
+    sectionKey: SectionKey,
+    key: string,
+    read: (v: unknown) => CellValue,
+  ) =>
+    LAYERS.filter((layer) => {
+      const v = section(layers[layer], sectionKey)[key];
+
+      return v !== undefined && read(v) === null;
+    });
+
   // Plugins: installed for the user or for this project, plus any id a layer names.
   const pluginIds = new Set<string>();
   const installScope = new Map<string, PluginRow["installed"]>();
-  const installed = await readJson(
-    $,
-    `${config}/plugins/installed_plugins.json`,
-  );
+  let installed: Json = {};
+  try {
+    installed = await readJson($, `${config}/plugins/installed_plugins.json`);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnings.push(
+      `installed_plugins.json unreadable (${reason}): only plugins a settings file names are listed`,
+    );
+  }
   for (const [id, records] of Object.entries(section(installed, "plugins"))) {
     const list = Array.isArray(records) ? records : [];
     const isHere = list.some(
@@ -144,37 +252,54 @@ async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
       pluginIds.add(id);
   }
 
-  const pluginValue = (layer: Layer, id: string): boolean | null => {
-    const v = section(layers[layer], "enabledPlugins")[id];
-
-    return typeof v === "boolean" ? v : null;
-  };
+  const asPlugin = (v: unknown) => (typeof v === "boolean" ? v : null);
+  const pluginValue = (layer: Layer, id: string) =>
+    asPlugin(section(layers[layer], "enabledPlugins")[id]);
   const plugins: PluginRow[] = [...pluginIds].sort().map((id) => ({
     id,
     installed: installScope.get(id) ?? null,
     user: pluginValue("user", id),
     project: pluginValue("project", id),
     local: pluginValue("local", id),
+    odd: oddLayers("enabledPlugins", id, asPlugin),
+    above: asPlugin(aboveValue("enabledPlugins", id)),
   }));
 
-  // Skills: the user and project skills folders, plus any name a layer overrides
-  // (bundled skills only show up this way).
+  // Skills and command files, which skillOverrides covers alike. The user's
+  // own come first: where a name is in both, the user's is the one that runs.
   const origins = new Map<string, SkillRow["origin"]>();
-  for (const name of await skillDirs($, `${config}/skills`))
-    origins.set(name, "user");
-  for (const name of await skillDirs($, `${cwd}/.claude/skills`))
-    origins.set(name, "project");
-  for (const layer of LAYERS) {
-    for (const name of Object.keys(section(layers[layer], "skillOverrides"))) {
-      if (!origins.has(name)) origins.set(name, "override");
-    }
-  }
-
-  const skillValue = (layer: Layer, name: string): SkillMode | null => {
-    const v = section(layers[layer], "skillOverrides")[name];
-
-    return SKILL_MODES.includes(v as SkillMode) ? (v as SkillMode) : null;
+  const add = (names: string[], origin: SkillRow["origin"]) => {
+    for (const name of names) if (!origins.has(name)) origins.set(name, origin);
   };
+  add(await skillDirs($, `${config}/skills`), "user");
+  add(await commandFiles($, `${config}/commands`), "user");
+  add(await skillDirs($, `${cwd}/.claude/skills`), "project");
+  add(await commandFiles($, `${cwd}/.claude/commands`), "project");
+  // What the session loaded from anywhere else: a parent folder's .claude, an
+  // added directory's, and the skills claude.ai synced. A synced skill is
+  // listed under its full name, which is the key that cannot be taken for a
+  // skill of the user's. A plugin's skills are left out, as skillOverrides
+  // does not reach them.
+  try {
+    const synced = await syncedSkills($, config);
+    for (const { name } of (await $.command.list()).filter(
+      (c) => c.source === "user",
+    )) {
+      if (name.startsWith(SYNCED)) add([name], "synced");
+      else if (synced.has(name)) add([`${SYNCED}${name}`], "synced");
+      else add([name], "project");
+    }
+  } catch {
+    // The folders above are the list.
+  }
+  // Any name a layer overrides (bundled skills only show up this way).
+  for (const layer of LAYERS)
+    add(Object.keys(section(layers[layer], "skillOverrides")), "override");
+
+  const asSkill = (v: unknown) =>
+    SKILL_MODES.includes(v as SkillMode) ? (v as SkillMode) : null;
+  const skillValue = (layer: Layer, name: string) =>
+    asSkill(section(layers[layer], "skillOverrides")[name]);
   const skills: SkillRow[] = [...origins.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, origin]) => ({
@@ -183,9 +308,11 @@ async function loadSnapshot($: $, cwd: string): Promise<Snapshot> {
       user: skillValue("user", name),
       project: skillValue("project", name),
       local: skillValue("local", name),
+      odd: oddLayers("skillOverrides", name, asSkill),
+      above: asSkill(aboveValue("skillOverrides", name)),
     }));
 
-  return { cwd, files, plugins, skills, broken };
+  return { cwd, files, plugins, skills, broken, warnings };
 }
 
 /** Adds a sentence to the message line. */
@@ -198,17 +325,19 @@ async function note($: $, text: string) {
 async function refresh($: $) {
   // Asked each time: /cd or a worktree move changes it with no session.start.
   const cwd = await $.session.root();
+  const files = settingsFiles(await configDir($), cwd);
   let snapshot: Snapshot;
   try {
-    snapshot = await loadSnapshot($, cwd);
+    snapshot = await loadSnapshot($, cwd, files, await rootLocal($, cwd));
   } catch (error) {
     // No rows rather than the last folder's, which a press would save there.
     snapshot = {
       cwd,
-      files: settingsFiles(await configDir($), cwd),
+      files,
       plugins: [],
       skills: [],
       broken: {},
+      warnings: [],
     };
     await note($, `Failed to read settings: ${String(error)}`);
   }
@@ -263,8 +392,11 @@ async function readText($: $, path: string): Promise<string> {
   return (await $.fs.exists(path)) ? await $.fs.read(path) : "";
 }
 
-/** Writes one file's staged changes, or throws why it did not. */
-async function saveFile($: $, path: string, edits: Edit[]) {
+/**
+ * Writes one file's staged changes, or throws why it did not. Answers
+ * whether the file's layout changed with them.
+ */
+async function saveFile($: $, path: string, edits: Edit[]): Promise<boolean> {
   let target = path;
   const existed = await $.fs.exists(path);
   if (existed) {
@@ -281,8 +413,15 @@ async function saveFile($: $, path: string, edits: Edit[]) {
   if ("error" in plan) throw new Error(plan.error);
   await $.fs.write(target, plan.text);
 
+  // Compared as JSON: a formatter may lay the file out again after the write.
   const written = await readText($, target);
-  if (written !== plan.text) {
+  let isKept = false;
+  try {
+    isKept = sameJson(JSON.parse(written), JSON.parse(plan.text));
+  } catch {
+    // Not JSON any more: undone below.
+  }
+  if (!isKept) {
     // `$.fs` cannot delete, so a file this save created is left as `{}`.
     if (existed) {
       await $.fs.write(target, original);
@@ -291,6 +430,8 @@ async function saveFile($: $, path: string, edits: Edit[]) {
     await $.fs.write(target, "{}\n");
     throw new Error("the new file read back differently; left it as {}");
   }
+
+  return plan.reformatted;
 }
 
 async function saveAll($: $) {
@@ -300,6 +441,7 @@ async function saveAll($: $) {
 
   const home = (await $.env.get("HOME")) ?? "";
   const saved: Layer[] = [];
+  const reformatted = new Set<Layer>();
   let failure: string | null = null;
   for (const layer of LAYERS) {
     const path = snapshot.files[layer];
@@ -307,7 +449,7 @@ async function saveAll($: $) {
     const edits = pending.filter((p) => p.layer === layer && p.file === path);
     if (edits.length === 0) continue;
     try {
-      await saveFile($, path, edits);
+      if (await saveFile($, path, edits)) reformatted.add(layer);
       saved.push(layer);
       await update($, pendingAtom, (prev) =>
         prev.filter((p) => !(p.layer === layer && p.file === path)),
@@ -321,20 +463,42 @@ async function saveAll($: $) {
 
   const done =
     saved.length > 0
-      ? `Saved ${saved.map((l) => shortPath(home, snapshot.cwd, snapshot.files[l])).join(", ")}`
+      ? `Saved ${saved
+          .map(
+            (l) =>
+              shortPath(home, snapshot.cwd, snapshot.files[l]) +
+              (reformatted.has(l) ? " (reformatted)" : ""),
+          )
+          .join(", ")}`
       : null;
-  const needsReload = pending.some(
-    (p) => p.section === "enabledPlugins" && saved.includes(p.layer),
-  );
-  const hint = needsReload ? "  (/reload-plugins to apply)" : "";
-  await update($, reviewingAtom, () => false);
+  // A failure keeps the review open, where the unsaved changes are listed.
+  if (failure === null) await update($, reviewingAtom, () => false);
   await update($, closeWarnedAtom, () => false);
-  await update($, messageAtom, () =>
-    failure
-      ? [done, failure].filter(Boolean).join(". ")
-      : `${done ?? ""}${hint}`,
-  );
+  await update($, messageAtom, () => done);
+  await update($, failureAtom, () => failure);
   await refresh($);
+
+  // Last, after the pane is up to date: /reload-plugins may load this module
+  // again, and what follows the call here would then not run.
+  if (saved.length > 0) await applySaved($);
+}
+
+const RELOADS = ["reload-plugins", "reload-skills"];
+
+/** Runs the reload commands this build has, so a save needs nothing typed. */
+async function applySaved($: $) {
+  try {
+    const known = new Set((await $.command.list()).map((c) => c.name));
+    for (const command of RELOADS)
+      if (known.has(command)) await $.command.run({ command });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    await update($, failureAtom, (prev) =>
+      [prev, `Not reloaded: ${reason}; run /reload-plugins`]
+        .filter(Boolean)
+        .join(". "),
+    );
+  }
 }
 
 // ---- drawing -------------------------------------------------------------
@@ -366,10 +530,9 @@ function skillMark(value: SkillMode | null): Mark {
 
 const OPEN = {
   id: PANE,
-  title: "Toggle",
+  title: "Toggle plugins",
   focus: true,
   closeOnEscape: true,
-  holdToasts: true,
   // Docked width wanted (the engine caps it at 45% of the terminal).
   columns: 80,
 } as const;
@@ -396,6 +559,7 @@ export const register: Register = (on) => {
           plugins: [],
           skills: [],
           broken: {},
+          warnings: [],
         },
     );
 
@@ -408,6 +572,7 @@ export const register: Register = (on) => {
       if (arg === "plugins" || arg === "skills")
         await update($, tabAtom, () => arg);
       await update($, messageAtom, () => null);
+      await update($, failureAtom, () => null);
       await update($, reviewingAtom, () => false);
       await update($, closeWarnedAtom, () => false);
       await refresh($);
@@ -451,6 +616,7 @@ export const register: Register = (on) => {
     const snapshot = await read($, snapshotAtom);
     const tab = await read($, tabAtom);
     const message = await read($, messageAtom);
+    const failure = await read($, failureAtom);
     const pending = await read($, pendingAtom);
     const isReviewing = (await read($, reviewingAtom)) && pending.length > 0;
 
@@ -467,10 +633,20 @@ export const register: Register = (on) => {
         <Text dimColor>{m.text}</Text>
       );
 
-    const messageLine = message !== null && (
-      <Text color="suggestion" wrap="truncate-end">
-        {message}
-      </Text>
+    // Wrapped: a refusal's reason is the part worth reading.
+    const messageLine = (message !== null || failure !== null) && (
+      <Box flexDirection="column">
+        {message !== null && (
+          <Text color="suggestion" wrap="wrap">
+            {message}
+          </Text>
+        )}
+        {failure !== null && (
+          <Text color="error" wrap="wrap">
+            {failure}
+          </Text>
+        )}
+      </Box>
     );
 
     // The changes, file by file, and the buttons that write or drop them.
@@ -541,11 +717,12 @@ export const register: Register = (on) => {
             onPress={() => update($, tabAtom, () => "skills")}
           />
           <Button
-            key="reload"
+            key="refresh"
             hotkey="r"
-            label="Reload"
+            label="Refresh"
             onPress={async () => {
               await update($, messageAtom, () => null);
+              await update($, failureAtom, () => null);
               await refresh($);
             }}
           />
@@ -563,6 +740,11 @@ export const register: Register = (on) => {
             )}
           </Text>
         ))}
+        {snapshot.warnings.map((w) => (
+          <Text key={`warning:${w}`} color="error" wrap="wrap">
+            {w}
+          </Text>
+        ))}
         <Text wrap="truncate-end">
           <Text color="success">[+]</Text> on <Text color="error">[-]</Text> off{" "}
           <Text dimColor>[ ]</Text> inherit <Text color="warning">*</Text>{" "}
@@ -572,7 +754,7 @@ export const register: Register = (on) => {
               {"  "}
               <Text color="warning">[n]</Text> name-only{" "}
               <Text color="warning">[u]</Text> user-invocable-only{"  "}
-              <Text color={PROJECT_COLOR}>name</Text> .claude/skills
+              <Text color={PROJECT_COLOR}>name</Text> project
             </Text>
           )}
         </Text>
@@ -667,45 +849,59 @@ export const register: Register = (on) => {
     };
 
     // One row: the effective value, the name, then a button per layer.
-    const row = <T extends CellValue>(
-      key: string,
-      name: string,
-      width: number,
-      sectionKey: SectionKey,
-      file: Record<Layer, T | null>,
-      mark: (v: T | null) => Mark,
-      fallback: T | null,
-      nextValue: (layer: Layer, current: T | null) => T | null,
-      isLocked: (layer: Layer) => boolean = () => false,
-      nameColor?: string,
-    ) => {
-      const { values, changed } = staged(sectionKey, name, file);
+    const row = <T extends CellValue>(r: {
+      key: string;
+      name: string;
+      width: number;
+      section: SectionKey;
+      /** The row as the files hold it. */
+      file: Record<Layer, T | null> & { odd: Layer[]; above: T | null };
+      mark: (v: T | null) => Mark;
+      /** The value in effect when no layer sets one. */
+      fallback: T | null;
+      next: (layer: Layer, current: T | null) => T | null;
+      /** A cell that would change nothing, so is not offered. */
+      isPointless?: (layer: Layer) => boolean;
+      nameColor?: string;
+    }) => {
+      const { values, changed } = staged(r.section, r.name, r.file);
+      // Why a layer's cell is not a button: "?" holds a value the pane does
+      // not know, "-" is unreadable or would change nothing.
+      const closed = (layer: Layer) => {
+        if (layer in snapshot.broken) return " - ";
+        if (r.file.odd.includes(layer)) return " ? ";
+
+        return r.isPointless?.(layer) ? " - " : null;
+      };
 
       return (
-        <Box key={key} flexDirection="row" gap={1}>
-          {markText(mark(effective(values) ?? fallback), true)}
-          {nameCells(name, width, nameColor)}
+        <Box key={r.key} flexDirection="row" gap={1}>
+          {markText(
+            r.mark(r.file.above ?? effective(values) ?? r.fallback),
+            true,
+          )}
+          {nameCells(r.name, r.width, r.nameColor)}
           {LAYERS.map((layer) => (
-            <Box key={`${key}:${layer}:cell`} width={layer.length}>
-              {layer in snapshot.broken || isLocked(layer) ? (
-                <Text dimColor> - </Text>
+            <Box key={`${r.key}:${layer}:cell`} width={layer.length}>
+              {closed(layer) !== null ? (
+                <Text dimColor>{closed(layer)}</Text>
               ) : (
                 <Button
-                  key={`${key}:${layer}`}
+                  key={`${r.key}:${layer}`}
                   plain
                   onPress={() =>
                     stage(
                       $,
                       layer,
                       snapshot.files[layer],
-                      sectionKey,
-                      name,
-                      file[layer],
-                      nextValue(layer, values[layer]),
+                      r.section,
+                      r.name,
+                      r.file[layer],
+                      r.next(layer, values[layer]),
                     )
                   }
                 >
-                  {markText(mark(values[layer]))}
+                  {markText(r.mark(values[layer]))}
                   <Text color="warning" bold>
                     {changed.has(layer) ? "*" : " "}
                   </Text>
@@ -714,6 +910,21 @@ export const register: Register = (on) => {
             </Box>
           ))}
         </Box>
+      );
+    };
+
+    // Says so when a row's left mark comes from above the three layers.
+    const aboveNote = (rows: { above: CellValue }[]) => {
+      const count = rows.filter((x) => x.above !== null).length;
+
+      return (
+        count > 0 && (
+          <Text dimColor wrap="wrap">
+            {count} row(s) are set by --settings, managed settings, or the
+            repository root's settings.local.json; the left mark shows that
+            value, and no cell here changes it.
+          </Text>
+        )
       );
     };
 
@@ -729,24 +940,25 @@ export const register: Register = (on) => {
       return (
         <Box flexDirection="column">
           {header}
+          {aboveNote(snapshot.plugins)}
           {columns("plugin", width)}
           {snapshot.plugins.map((p) =>
-            row(
-              `p:${p.id}`,
-              p.id,
+            row({
+              key: `p:${p.id}`,
+              name: p.id,
               width,
-              "enabledPlugins",
-              p,
-              pluginMark,
-              null,
-              nextPluginValue,
+              section: "enabledPlugins",
+              file: p,
+              mark: pluginMark,
+              fallback: null,
+              next: nextPluginValue,
               // Installed for this project alone: a user value would reach no
               // other project, so the user cell is not offered.
-              (layer) =>
+              isPointless: (layer) =>
                 layer === "user" &&
                 p.installed === "project" &&
                 p.user === null,
-            ),
+            }),
           )}
         </Box>
       );
@@ -757,21 +969,20 @@ export const register: Register = (on) => {
     return (
       <Box flexDirection="column">
         {header}
+        {aboveNote(snapshot.skills)}
         {columns("skill", width)}
         {snapshot.skills.map((s) =>
-          row(
-            `s:${s.name}`,
-            s.name,
+          row({
+            key: `s:${s.name}`,
+            name: s.name,
             width,
-            "skillOverrides",
-            s,
-            skillMark,
-            "on",
-            (_, current) => nextSkillValue(current),
-            undefined,
-            // A skill of this project's .claude/skills, not a user one.
-            s.origin === "project" ? PROJECT_COLOR : undefined,
-          ),
+            section: "skillOverrides",
+            file: s,
+            mark: skillMark,
+            fallback: "on",
+            next: (_, current) => nextSkillValue(current),
+            nameColor: s.origin === "project" ? PROJECT_COLOR : undefined,
+          }),
         )}
       </Box>
     );

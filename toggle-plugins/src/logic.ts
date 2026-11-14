@@ -1,4 +1,4 @@
-// Pure logic of toggle-plugin: no `$`, so the tests call it directly.
+// Pure logic of toggle-plugins: no `$`, so the tests call it directly.
 
 import type { CellValue, Edit, Layer, SkillMode } from "../types";
 
@@ -44,16 +44,58 @@ export function shown(value: CellValue): string {
 //   1. the file must parse as a JSON object (a missing or empty file is {})
 //   2. each staged section, when present, must be an object
 //   3. every staged key must still hold the value it held when pressed
-//   4. the file must print back to its own text, so the write changes no
-//      formatting, only the staged keys
-//   5. the new object must differ from the old in the staged keys alone
-//   6. the written text is read back; on a mismatch the old text is restored
+//   4. the new object must differ from the old in the staged keys alone
+//   5. the file is read back and compared as JSON, not as text; on a
+//      mismatch the old text is restored
+// The file is printed with its own indentation and final newline. One laid
+// out another way (one line, aligned values) is saved all the same and
+// comes back in the plain layout; `reformatted` says so.
+// The order of the keys is kept, and a new key goes last in its section. A
+// file whose printing would change more than spacing is refused.
+
+/** Whether two JSON values are equal, whatever the order of their keys. */
+export function sameJson(a: unknown, b: unknown): boolean {
+  if (Array.isArray(a) || Array.isArray(b))
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((v, i) => sameJson(v, b[i]))
+    );
+  if (!isObject(a) || !isObject(b)) return a === b;
+  const keys = Object.keys(a);
+
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((k) => k in b && sameJson(a[k], b[k]))
+  );
+}
+
+/** JSON text with the spacing between its tokens taken out. */
+function withoutSpacing(text: string): string {
+  let out = "";
+  let isInString = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i] as string;
+    if (isInString) {
+      out += c;
+      // An escaped character is copied as it is, a quote included.
+      if (c === "\\") out += text[++i] ?? "";
+      else if (c === '"') isInString = false;
+    } else if (c === '"') {
+      isInString = true;
+      out += c;
+    } else if (c !== " " && c !== "\t" && c !== "\n" && c !== "\r") out += c;
+  }
+
+  return out;
+}
 
 /** What a file becomes after its staged changes, or why it may not. */
 export function planFile(
   text: string,
   edits: Edit[],
-): { text: string } | { error: string } {
+): { text: string; reformatted: boolean } | { error: string } {
   let before: Json = {};
   if (text.trim()) {
     let value: unknown;
@@ -77,17 +119,22 @@ export function planFile(
     const now = raw === undefined ? null : raw;
     if (now !== e.from)
       return {
-        error: `${e.section}.${e.key} is now ${JSON.stringify(now)}, not ${shown(e.from)}; reload`,
+        error: `${e.section}.${e.key} is now ${JSON.stringify(now)}, not ${shown(e.from)}; refresh and press again`,
       };
   }
 
   const indent = /^([ \t]+)"/m.exec(text)?.[1] ?? "  ";
   const eol = text === "" || text.endsWith("\n") ? "\n" : "";
   const print = (value: Json) => `${JSON.stringify(value, null, indent)}${eol}`;
-  if (text.trim() && print(before) !== text)
+  // Printing may change the spacing and nothing else. What else it would
+  // change: a repeated key (the last one is kept), a number-only key (moved
+  // to the front), a number or an escape written another way.
+  if (text.trim() && withoutSpacing(text) !== JSON.stringify(before))
     return {
-      error: "saving would reformat the file (its layout is not plain JSON.stringify); edit it by hand",
+      error:
+        "saving would change more than spacing (a repeated key, a number-only key, or a value written another way); edit it by hand",
     };
+  const reformatted = text.trim() !== "" && print(before) !== text;
 
   // A fresh copy, so `before` stays as read for the comparison below.
   const after: Json = text.trim() ? JSON.parse(text) : {};
@@ -99,8 +146,7 @@ export function planFile(
     else delete after[e.section];
   }
 
-  const same = (a: unknown, b: unknown) =>
-    JSON.stringify(a) === JSON.stringify(b);
+  const same = sameJson;
   const touched = new Set(edits.map((e) => e.section as string));
   for (const k of new Set([...Object.keys(before), ...Object.keys(after)])) {
     if (!touched.has(k)) {
@@ -116,7 +162,7 @@ export function planFile(
     }
   }
 
-  return { text: print(after) };
+  return { text: print(after), reformatted };
 }
 
 /** A path as shown: inside this project relative to it, else from `~`. */
