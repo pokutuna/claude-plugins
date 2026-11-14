@@ -15,7 +15,7 @@ Each row shows the value that wins on the left, then one cell per layer. Pressin
 
 > **The project layer follows the session's folder.** `.claude/settings.json` is read from the folder the session is in (where it started, or where `/cd` took it), and only plugins installed for that folder are listed. `.claude/settings.local.json` is the one beside it, so in a git worktree both files are the worktree's own and a change stays there.
 
-> **The repository root's `settings.local.json` also applies.** When the session's folder is not the repository root (a subfolder, or a worktree, whose root is the original repository), Claude Code reads that root's `settings.local.json` too, and its value wins for a key both files set. The pane shows such a value as the left mark and does not change that file.
+> **The repository root's `settings.local.json` also applies.** When the session's folder is not the repository root (a subfolder, or a worktree, whose root is the original repository), Claude Code reads that root's `settings.local.json` too, and its value wins for a key both files set. The pane shows such a value on the left and does not change that file.
 
 ## Install
 
@@ -43,9 +43,11 @@ local   .claude/settings.local.json
 [+] on [-] off [ ] inherit * unsaved
 2 unsaved [Review & save] [Undo all]
     plugin                         user project local
-[+] runpod@pokutuna-plugins        [-]  [+]     [ ]
-[-] difit@pokutuna-plugins         [+]  [ ]     [-]*
+on  runpod@pokutuna-plugins        [-]  [+]     [ ]
+off difit@pokutuna-plugins         [+]  [ ]     [-]*
 ```
+
+The word on the left is the value in effect. The cell that decides it is drawn in color; a cell a higher layer overrides is dim, and so is the whole row of something that is off.
 
 | Mark | Meaning |
 | --- | --- |
@@ -56,7 +58,7 @@ local   .claude/settings.local.json
 | ` - ` | not offered (the user cell of a plugin installed for this project alone, or a layer whose file is unreadable) |
 | ` ? ` | the layer holds a value the pane does not know, so it is left alone; edit it by hand |
 
-The left mark is the value in effect: local over project over user. A value from `--settings`, managed settings, or the repository root's `settings.local.json` (see above) wins over all three; the pane says how many rows have one, shows it as the left mark, and cannot change it. A skill name in another color and followed by `(project)` is not one of your own skills or command files: it comes from this project.
+The word on the left (`on`, `off`, and for skills `name` or `user` for `name-only` or `user-invocable-only`) is the value in effect: local over project over user. A value from `--settings`, managed settings, or the repository root's `settings.local.json` (see above) wins over all three; the pane says how many rows have one, shows it on the left with all three cells dim, and cannot change it. A skill name in another color and followed by `(project)` is not one of your own skills or command files: it comes from this project.
 
 | Key | Action |
 | --- | --- |

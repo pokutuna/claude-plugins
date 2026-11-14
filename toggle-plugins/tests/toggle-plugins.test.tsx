@@ -428,6 +428,9 @@ test("a save runs only the reload commands the build has", async ($, on) => {
 
   const ui = await saveOne($);
   expect(ran).toEqual(["reload-plugins"]);
+  // The value in effect is a word at the left: local "on" over user "off".
+  expect(await ui.find({ type: "Text", text: /^on\s+$/ })).toBeDefined();
+  expect(await ui.find({ type: "Text", text: /^off\s*$/ })).toBeUndefined();
   expect(await ui.find({ type: "Text", text: /not reloaded/ })).toBeUndefined();
   await ui.unmount();
 });

@@ -201,7 +201,7 @@ async function loadSnapshot(
       const held: unknown = await $.settings.read({ source });
       if (isObject(held)) upper.push(held);
     } catch {
-      // A build without the read: the left mark shows the three layers alone.
+      // A build without the read: the left word shows the three layers alone.
     }
   }
   // The repository root's local file wins over the session folder's.
@@ -530,6 +530,28 @@ function skillMark(value: SkillMode | null): Mark {
   return value === null ? UNSET : SKILL_MARK[value];
 }
 
+// The value in effect, at the left of a row: a word, not a box, so it does
+// not read as a cell to press.
+const PLUGIN_WORD_WIDTH = 3;
+const SKILL_WORD_WIDTH = 4;
+
+function pluginWord(value: boolean | null): Mark {
+  return value
+    ? { text: "on", color: "success" }
+    : { text: "off", color: "error" };
+}
+
+const SKILL_WORD: Record<SkillMode, Mark> = {
+  on: { text: "on", color: "success" },
+  "name-only": { text: "name", color: "warning" },
+  "user-invocable-only": { text: "user", color: "warning" },
+  off: { text: "off", color: "error" },
+};
+
+function skillWord(value: SkillMode | null): Mark {
+  return SKILL_WORD[value ?? "on"];
+}
+
 const OPEN = {
   id: PANE,
   title: "Toggle plugins",
@@ -626,8 +648,9 @@ export const register: Register = (on) => {
 
     const home = (await $.env.get("HOME")) ?? "";
 
-    const markText = (m: Mark, bold = false) =>
-      m.color ? (
+    // `isFaint` draws a set value without its color: a layer that lost.
+    const markText = (m: Mark, bold = false, isFaint = false) =>
+      m.color && !isFaint ? (
         <Text color={m.color} bold={bold}>
           {m.text}
         </Text>
@@ -803,8 +826,9 @@ export const register: Register = (on) => {
     // The name column takes what the mark and the three buttons leave.
     // Each layer's cell is as wide as its name ("project"), so the header reads
     // in full above a 3-cell mark.
-    const nameWidth = (names: string[]) => {
-      const fixed = 3 + 1 + LAYERS.reduce((sum, l) => sum + l.length + 1, 0);
+    const nameWidth = (names: string[], word: number) => {
+      const fixed =
+        word + 1 + LAYERS.reduce((sum, l) => sum + l.length + 1, 0);
       const longest = Math.max(...names.map((n) => n.length), 6);
 
       return Math.max(8, Math.min(longest, e.props.bodyColumns - fixed - 1));
@@ -813,7 +837,23 @@ export const register: Register = (on) => {
     // Splits "name@market" into the name and a dim "@market", cutting the
     // market first so the name stays readable.
     // A tag is kept whole after the name, which is cut to leave it room.
-    const nameCells = (label: string, width: number, tag = "") => {
+    // A row that is off is drawn dim throughout, so what is on stands out.
+    const nameCells = (
+      label: string,
+      width: number,
+      tag = "",
+      isOff = false,
+    ) => {
+      if (isOff)
+        return (
+          <Text dimColor wrap="truncate-end">
+            {tag && width > tag.length + 1
+              ? `${label.length > width - tag.length ? fit(label, width - tag.length) : label}${tag}`.padEnd(
+                  width,
+                )
+              : fit(label, width)}
+          </Text>
+        );
       if (tag && width > tag.length + 1) {
         const room = width - tag.length;
         const name = label.length > room ? fit(label, room) : label;
@@ -865,6 +905,11 @@ export const register: Register = (on) => {
       /** The row as the files hold it. */
       file: Record<Layer, T | null> & { odd: Layer[]; above: T | null };
       mark: (v: T | null) => Mark;
+      /** The value in effect as a word, and the width of its column. */
+      word: (v: T | null) => Mark;
+      wordWidth: number;
+      /** Whether the value in effect leaves the row out of the session. */
+      isOff: (v: T | null) => boolean;
       /** The value in effect when no layer sets one. */
       fallback: T | null;
       next: (layer: Layer, current: T | null) => T | null;
@@ -883,13 +928,21 @@ export const register: Register = (on) => {
         return r.isPointless?.(layer) ? " - " : null;
       };
 
+      const result = r.file.above ?? effective(values) ?? r.fallback;
+      // The layer whose value is the result: the highest one that sets any.
+      // None when the value comes from above the three, or from the default.
+      const decider =
+        r.file.above !== null
+          ? null
+          : ([...LAYERS].reverse().find((l) => values[l] !== null) ?? null);
+      const word = r.word(result);
+
       return (
         <Box key={r.key} flexDirection="row" gap={1}>
-          {markText(
-            r.mark(r.file.above ?? effective(values) ?? r.fallback),
-            true,
-          )}
-          {nameCells(r.name, r.width, r.tag)}
+          <Text color={word.color} bold>
+            {word.text.padEnd(r.wordWidth)}
+          </Text>
+          {nameCells(r.name, r.width, r.tag, r.isOff(result))}
           {LAYERS.map((layer) => (
             <Box key={`${r.key}:${layer}:cell`} width={layer.length}>
               {closed(layer) !== null ? (
@@ -910,7 +963,11 @@ export const register: Register = (on) => {
                     )
                   }
                 >
-                  {markText(r.mark(values[layer]))}
+                  {markText(
+                    r.mark(values[layer]),
+                    layer === decider,
+                    layer !== decider,
+                  )}
                   <Text color="warning" bold>
                     {changed.has(layer) ? "*" : " "}
                   </Text>
@@ -922,7 +979,7 @@ export const register: Register = (on) => {
       );
     };
 
-    // Says so when a row's left mark comes from above the three layers.
+    // Says so when a row's left word comes from above the three layers.
     const aboveNote = (rows: { above: CellValue }[]) => {
       const count = rows.filter((x) => x.above !== null).length;
 
@@ -930,27 +987,30 @@ export const register: Register = (on) => {
         count > 0 && (
           <Text dimColor wrap="wrap">
             {count} row(s) are set by --settings, managed settings, or the
-            repository root's settings.local.json; the left mark shows that
+            repository root's settings.local.json; the left column shows that
             value, and no cell here changes it.
           </Text>
         )
       );
     };
 
-    const columns = (label: string, width: number) => (
+    const columns = (label: string, width: number, word: number) => (
       <Text dimColor wrap="truncate-end">
-        {"   "} {fit(label, width)} {LAYERS.join(" ")}
+        {" ".repeat(word)} {fit(label, width)} {LAYERS.join(" ")}
       </Text>
     );
 
     if (tab === "plugins") {
-      const width = nameWidth(snapshot.plugins.map((p) => p.id));
+      const width = nameWidth(
+        snapshot.plugins.map((p) => p.id),
+        PLUGIN_WORD_WIDTH,
+      );
 
       return (
         <Box flexDirection="column">
           {header}
           {aboveNote(snapshot.plugins)}
-          {columns("plugin", width)}
+          {columns("plugin", width, PLUGIN_WORD_WIDTH)}
           {snapshot.plugins.map((p) =>
             row({
               key: `p:${p.id}`,
@@ -959,6 +1019,9 @@ export const register: Register = (on) => {
               section: "enabledPlugins",
               file: p,
               mark: pluginMark,
+              word: pluginWord,
+              wordWidth: PLUGIN_WORD_WIDTH,
+              isOff: (v) => v !== true,
               fallback: null,
               next: nextPluginValue,
               // Installed for this project alone: a user value would reach no
@@ -977,13 +1040,14 @@ export const register: Register = (on) => {
       snapshot.skills.map(
         (s) => s.name + (s.origin === "project" ? PROJECT_TAG : ""),
       ),
+      SKILL_WORD_WIDTH,
     );
 
     return (
       <Box flexDirection="column">
         {header}
         {aboveNote(snapshot.skills)}
-        {columns("skill", width)}
+        {columns("skill", width, SKILL_WORD_WIDTH)}
         {snapshot.skills.map((s) =>
           row({
             key: `s:${s.name}`,
@@ -992,6 +1056,9 @@ export const register: Register = (on) => {
             section: "skillOverrides",
             file: s,
             mark: skillMark,
+            word: skillWord,
+            wordWidth: SKILL_WORD_WIDTH,
+            isOff: (v) => v === "off",
             fallback: "on",
             next: (_, current) => nextSkillValue(current),
             tag: s.origin === "project" ? PROJECT_TAG : undefined,
