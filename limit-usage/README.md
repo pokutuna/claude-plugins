@@ -55,15 +55,12 @@ flowchart LR
 ```
 
 1. Before each model request, main loop or subagent, a `turn.step` hook compares current usage against the thresholds. When one is reached it answers the step itself, so no request is sent.
-2. Usage is read from Claude Code: the session's own rate limits and cost. A rate reading whose window has reset is ignored.
+2. Usage is read from Claude Code: the session's own rate limits and cost. A rate reading whose window has reset, or that has no reset time, is ignored: a session that is stopped gets no new readings, so a block has to lift when the window resets.
 3. Session thresholds live in the session's plugin state; `--global` thresholds live in the plugin store Claude Code manages. The plugin keeps no state file of its own.
 
 ## Upgrading from 0.5.x
 
-0.6.0 no longer shares rate readings between sessions or writes a snapshot for other tools. After updating, delete the leftovers:
-
-1. The snapshot `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json`.
-2. The `shared-rates` key in `~/.claude/plugins/store/limit-usage_pokutuna-plugins-*.json`. Keep `global-limits` if you use `--global` thresholds.
+0.6.0 no longer shares rate readings between sessions or writes a snapshot for other tools. The readings 0.5.x shared are removed from the plugin store when a session starts. Delete the snapshot `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json` yourself.
 
 ## Upgrading from 0.4.x
 

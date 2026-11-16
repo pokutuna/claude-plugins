@@ -113,17 +113,21 @@ export function effectiveLimits(session: Limits, global: Limits): Limits {
   return out;
 }
 
-/** Whether the window a reading belongs to is still running at `nowMs`. */
+/**
+ * Whether the window a reading belongs to is still running at `nowMs`. A
+ * reading with no parsable reset time does not count: a blocked session gets
+ * no new readings, so a block on one could never lift by itself.
+ */
 export function isLive(reading: Reading, nowMs: number): boolean {
-  if (reading.resetsAt === undefined) return true;
+  if (reading.resetsAt === undefined) return false;
   const resets = Date.parse(reading.resetsAt);
 
-  return Number.isNaN(resets) || resets > nowMs;
+  return !Number.isNaN(resets) && resets > nowMs;
 }
 
 /**
- * Per window, the highest reading whose window has not reset. Within one
- * window usage only grows, so the highest live reading is the newest.
+ * This session's readings by window, leaving out any that is not live. The
+ * last API response reports each window once.
  */
 export function pickRates(
   readings: readonly Reading[],
@@ -133,9 +137,7 @@ export function pickRates(
   for (const reading of readings) {
     const window = WINDOW_OF[reading.kind];
     if (!window || !Number.isFinite(reading.percentUsed)) continue;
-    if (!isLive(reading, nowMs)) continue;
-    const held = out[window];
-    if (!held || reading.percentUsed > held.percentUsed) out[window] = reading;
+    if (isLive(reading, nowMs)) out[window] = reading;
   }
 
   return out;

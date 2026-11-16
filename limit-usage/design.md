@@ -29,7 +29,10 @@ both workarounds go away.
    - A session threshold overrides the global one per window.
    - `clear` removes this session's thresholds; `clear --global` also removes
      the global ones, so lifting one session's block never changes the others.
-   - A rate reading whose `resetsAt` has passed counts as absent.
+   - A rate reading whose `resetsAt` has passed, or that has no parsable
+     `resetsAt`, counts as absent. A stopped session sends no request, so it
+     gets no new reading; its block lifts only when the window's reset time
+     passes, and a reading without one would hold the block for good.
 5. **Each session reads only its own usage.** Sessions on one config
    directory can be signed in to different accounts with separate quotas:
    Claude.app runs its sessions with the CLI's `~/.claude` under its own
@@ -39,6 +42,7 @@ both workarounds go away.
    identifying the account. The cost: a session is not guarded on rate
    limits until its first response reports them. `--global` thresholds stay
    in `$.store`; they are a policy, checked against each session's own usage.
+   The `shared-rates` key 0.5.0 left in `$.store` is deleted at session start.
 6. **Show why requests are stopped.** While a request is being stopped, the
    plugin's own `$.ui.status` line (beside the engine's notices, not the
    user's statusLine) says why and names the command that lifts it (`clear`,
@@ -52,8 +56,8 @@ both workarounds go away.
 
 `claude plugin test limit-usage` runs `tests/limit-usage.test.ts` against a
 mocked engine. It covers threshold parsing, session-over-global precedence,
-a stop on each window and on cost, reset windows ignored, readings left in
-the store by 0.5.0 ignored, and the status line set while blocked and cleared after.
+a stop on each window and on cost, reset windows ignored, readings without a
+reset time ignored, readings left in the store by 0.5.0 ignored and deleted, and the status line set while blocked and cleared after.
 `claude plugin validate limit-usage` checks the manifest and the hooks module.
 
 ## Non-goals

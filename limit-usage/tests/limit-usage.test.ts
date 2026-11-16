@@ -95,12 +95,26 @@ describe("verdict", () => {
     const rates = pickRates(
       [
         { kind: "five_hour", percentUsed: 99, resetsAt: PAST },
-        { kind: "five_hour", percentUsed: 10, resetsAt: FUTURE },
+        { kind: "seven_day", percentUsed: 10, resetsAt: FUTURE },
       ],
       NOW,
     );
-    expect(rates["5h"]?.percentUsed).toBe(10);
+    expect(rates["5h"]).toBeUndefined();
+    expect(rates["7d"]?.percentUsed).toBe(10);
     expect(verdict({ "5h": 80 }, rates, undefined)).toBeUndefined();
+  });
+
+  // A blocked session gets no new readings, so a block on a reading that
+  // never expires would never lift.
+  test("a reading with no reset time counts as absent", async () => {
+    const rates = pickRates(
+      [
+        { kind: "five_hour", percentUsed: 99 },
+        { kind: "seven_day", percentUsed: 99, resetsAt: "soon" },
+      ],
+      NOW,
+    );
+    expect(rates).toEqual({});
   });
 
   test("the first window over its limit is the reason", async () => {
@@ -296,5 +310,19 @@ describe("the guard on model steps", () => {
     expect(text).toMatch(/5h used: {3}85\.0%/);
     expect(text).toMatch(/~\$1\.23/);
     expect(text).toMatch(/Blocking: 5h usage/);
+  });
+});
+
+describe("upgrading from 0.5.0", () => {
+  test("session start removes the readings 0.5.0 shared", async ($, on) => {
+    const deleted: string[] = [];
+    on("store.delete", (_, e) => {
+      deleted.push(e.key);
+      return { value: undefined };
+    });
+    on("command.register", (_, e) => ({ value: { command: e.name } }));
+    on("session.start", (_, e) => ({ cwd: e.cwd }));
+    await $.session.start({ cwd: "/w", surface: null, isInteractive: true });
+    expect(deleted).toEqual(["shared-rates"]);
   });
 });

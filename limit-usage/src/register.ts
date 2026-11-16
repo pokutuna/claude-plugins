@@ -19,6 +19,8 @@ const COMMAND = "limit-usage";
 const LIMITS = { plugin: "limit-usage", key: "limits" } as const;
 /** `$.store` key: thresholds set with --global. */
 const GLOBAL_LIMITS = "global-limits";
+/** `$.store` key 0.5.0 shared rate readings under; removed on session start. */
+const LEGACY_SHARED_RATES = "shared-rates";
 
 function asLimits(value: unknown): Limits {
   if (typeof value !== "object" || value === null) return {};
@@ -186,6 +188,7 @@ export const register: Register = (on) => {
       argumentHint: "5h=80 7d=90 | cost=$5 | --global | clear [--global] | status",
       immediate: true,
     });
+    await $.store.delete(LEGACY_SHARED_RATES).catch(() => undefined);
     // After a reload or resume, put the line back if it still blocks.
     await refreshStatus($).catch(() => undefined);
 
