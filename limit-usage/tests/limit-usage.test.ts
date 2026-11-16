@@ -117,7 +117,7 @@ describe("verdict", () => {
   });
 });
 
-/** The engine beneath the plugin: usage, store, clock, env and one model step. */
+/** The engine beneath the plugin: usage, store, clock and one model step. */
 function engine(
   on: On,
   usage: Partial<SessionUsage>,
@@ -126,10 +126,8 @@ function engine(
   const sent: number[] = [];
   const logged: string[] = [];
   const statuses: (string | undefined)[] = [];
-  const written: { path: string; text: string }[] = [];
   mock.clock(on, { now: NOW });
   mock.store(on, store);
-  mock.env(on, { HOME: "/home/u", XDG_STATE_HOME: "/state" });
   on("session.usage", () => ({
     value: {
       startedAt: 0,
@@ -146,11 +144,6 @@ function engine(
     statuses.push(e.text);
     return { value: undefined };
   });
-  on("fs.write", (_, e) => {
-    written.push({ path: e.path, text: e.text });
-    return { value: undefined };
-  });
-  on("session.measure", (_, e) => ({ changed: e.changed }));
   on("turn.step", async function* (_, e) {
     sent.push(e.index);
     return {
@@ -163,7 +156,7 @@ function engine(
     };
   });
 
-  return { sent, logged, written, statuses };
+  return { sent, logged, statuses };
 }
 
 const STEP = { turnId: "t1", index: 0, model: "opus", messageCount: 1 };
@@ -226,7 +219,9 @@ describe("the guard on model steps", () => {
     expect(world.sent).toEqual([]);
   });
 
-  test("another session's reading guards a session with none yet", async ($, on) => {
+  // Sessions may run on other accounts (Claude.app shares ~/.claude), so
+  // readings 0.5.0 left in the store must not count.
+  test("only this session's own readings count", async ($, on) => {
     const world = engine(
       on,
       { rateLimits: [] },
@@ -239,7 +234,7 @@ describe("the guard on model steps", () => {
     );
     await run($, "5h=80");
     await step($);
-    expect(world.sent).toEqual([]);
+    expect(world.sent).toEqual([0]);
   });
 
   test("cost stops at its limit, and --global still sets it per session", async ($, on) => {
@@ -301,52 +296,5 @@ describe("the guard on model steps", () => {
     expect(text).toMatch(/5h used: {3}85\.0%/);
     expect(text).toMatch(/~\$1\.23/);
     expect(text).toMatch(/Blocking: 5h usage/);
-  });
-});
-
-describe("publishing readings", () => {
-  test("a measurement is shared in the store and written as a snapshot", async ($, on) => {
-    const world = engine(
-      on,
-      {},
-      {
-        "shared-rates": {
-          readings: [{ kind: "seven_day", percentUsed: 40, resetsAt: FUTURE }],
-          at: 0,
-        },
-      },
-    );
-    await $.session.measure({
-      context: { window: 200000 },
-      rateLimits: [{ kind: "five_hour", percentUsed: 30, resetsAt: FUTURE }],
-      changed: ["rateLimits"],
-    });
-    expect(world.written).toHaveLength(1);
-    expect(world.written[0]?.path).toBe("/state/cc-limit-usage.json");
-    const snapshot = JSON.parse(world.written[0]?.text ?? "{}");
-    expect(snapshot.schema).toBe(1);
-    expect(snapshot.epoch).toBe(Math.floor(NOW / 1000));
-    expect(snapshot.rateLimits).toHaveLength(2);
-
-    // The shared reading now guards this session even with its own empty.
-    await run($, "5h=25");
-    await step($);
-    expect(world.sent).toEqual([]);
-  });
-
-  test("a reading with no reset time is not shared", async ($, on) => {
-    const world = engine(on, {});
-    await $.session.measure({
-      context: { window: 200000 },
-      rateLimits: [
-        { kind: "five_hour", percentUsed: 99 },
-        { kind: "seven_day", percentUsed: 40, resetsAt: FUTURE },
-      ],
-      changed: ["rateLimits"],
-    });
-    const snapshot = JSON.parse(world.written[0]?.text ?? "{}");
-    expect(snapshot.rateLimits).toEqual([
-      { kind: "seven_day", percentUsed: 40, resetsAt: FUTURE },
-    ]);
   });
 });

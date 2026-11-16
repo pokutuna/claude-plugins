@@ -122,17 +122,6 @@ export function isLive(reading: Reading, nowMs: number): boolean {
 }
 
 /**
- * Whether a reading names a parsable reset time. Only such readings are shared
- * with other sessions: one without it never expires, so a high value would keep
- * every session blocked after its window had reset.
- */
-export function hasReset(reading: Reading): boolean {
-  return (
-    reading.resetsAt !== undefined && !Number.isNaN(Date.parse(reading.resetsAt))
-  );
-}
-
-/**
  * Per window, the highest reading whose window has not reset. Within one
  * window usage only grows, so the highest live reading is the newest.
  */
@@ -150,16 +139,6 @@ export function pickRates(
   }
 
   return out;
-}
-
-/** Merges readings into one list: one per window, the highest live one. */
-export function mergeReadings(
-  readings: readonly Reading[],
-  nowMs: number,
-): Reading[] {
-  return Object.values(pickRates(readings, nowMs)).filter(
-    (r): r is Reading => r !== undefined,
-  );
 }
 
 /** What is over its limit: a rate window or the session cost. */

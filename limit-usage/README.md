@@ -13,7 +13,7 @@ Both figures come from Claude Code itself, so measuring costs **zero extra quota
 
 > **Requires a Claude Code build with mods** (function hooks, early access). On a build without them the plugin does not work: it stops nothing, and the build may report a plugin load error.
 
-> **`cost` is per-session.** Each session's `cost` limit tracks only that session's own spend. `5h`/`7d` are account-wide, and a reading from one session also guards the others.
+> **`cost` is per-session.** Each session's `cost` limit tracks only that session's own spend. `5h`/`7d` are account-wide, but each session checks only the usage reported to it, so a new session is not stopped until its first response arrives. Sessions on different accounts, such as Claude.app's and the CLI's, never see each other's usage.
 
 ## Install
 
@@ -40,16 +40,14 @@ For `5h`/`7d` the number is the **used percentage** (0–100): `80` means "80% u
 
 While a request is being stopped, the plugin's status line under the prompt shows why and how to lift it, e.g. `Blocked: 5h 81.0% >= 80% · resets 18:10 · /limit-usage clear`. When the threshold behind the block was set with `--global`, the line names `/limit-usage clear --global` instead. The command itself never sends a model request, so it works while blocked.
 
-`5h`/`7d` figures appear after the first API response of any session. If `status` never shows them, your plan has no usage quota — use a `cost` limit instead.
+`5h`/`7d` figures appear after the session's first API response. If `status` never shows them, your plan has no usage quota — use a `cost` limit instead.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    CC[Claude Code] -->|"session.measure: rate limits"| P["limit-usage"]
-    P -->|"latest readings"| ST[("plugin store")]
-    P -->|"snapshot"| SNAP[("cc-limit-usage.json")]
-    SET["/limit-usage"] -->|thresholds| ST
+    CC[Claude Code] -.->|"session usage:<br>rate limits, cost"| G
+    SET["/limit-usage"] -->|thresholds| ST[("session state /<br>plugin store")]
     STEP["each model step<br>(main and subagents)"] --> G{{"turn.step:<br>used% / cost ≥ threshold?"}}
     ST -.-> G
     G -- Yes --> STOP["No request sent"]
@@ -57,18 +55,15 @@ flowchart LR
 ```
 
 1. Before each model request, main loop or subagent, a `turn.step` hook compares current usage against the thresholds. When one is reached it answers the step itself, so no request is sent.
-2. Usage is read from Claude Code: the session's own rate limits and cost, plus the latest rate readings other sessions shared. Per window the highest reading whose window has not reset is used. Only readings with a reset time are shared, since one without it could never expire.
-3. Session thresholds live in the session's plugin state; `--global` thresholds and shared readings live in the plugin store Claude Code manages. The plugin keeps no state file of its own.
+2. Usage is read from Claude Code: the session's own rate limits and cost. A rate reading whose window has reset is ignored.
+3. Session thresholds live in the session's plugin state; `--global` thresholds live in the plugin store Claude Code manages. The plugin keeps no state file of its own.
 
-### Snapshot for other tools
+## Upgrading from 0.5.x
 
-Each time the rate limits change, the plugin writes `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json`:
+0.6.0 no longer shares rate readings between sessions or writes a snapshot for other tools. After updating, delete the leftovers:
 
-```json
-{"schema":1,"epoch":1794250515,"rateLimits":[{"kind":"five_hour","percentUsed":25,"resetsAt":"2026-11-09T21:10:00.000Z"}]}
-```
-
-It is for display tools only; the guard never reads it. Treat unparsable content or an unknown `schema` as no value.
+1. The snapshot `${XDG_STATE_HOME:-~/.local/state}/cc-limit-usage.json`.
+2. The `shared-rates` key in `~/.claude/plugins/store/limit-usage_pokutuna-plugins-*.json`. Keep `global-limits` if you use `--global` thresholds.
 
 ## Upgrading from 0.4.x
 
