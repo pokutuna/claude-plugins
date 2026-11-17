@@ -1,4 +1,4 @@
-import { expect, test } from "claude-code/testing";
+import { expect, mock, test } from "claude-code/testing";
 import type { TestBody } from "claude-code/testing";
 
 import { planFile } from "../src/logic";
@@ -112,6 +112,10 @@ type Fake = {
   runFails?: boolean;
   /** What --settings or managed settings hold. */
   policy?: Record<string, unknown>;
+  /** Refuses every write as sec-default refuses a settings file's. */
+  refuseWrites?: boolean;
+  /** The prompts the plugin submitted. */
+  prompts?: string[];
 };
 
 const BUILTIN = ["status", "reload-plugins", "reload-skills"].map((name) => ({
@@ -134,6 +138,8 @@ async function fakeSession(
     ran = [],
     runFails = false,
     policy = {},
+    refuseWrites = false,
+    prompts = [],
   }: Fake,
 ) {
   on("command.list", () =>
@@ -173,7 +179,18 @@ async function fakeSession(
       realPath: links.get(e.path) ?? e.path,
     },
   }));
+  on("turn.start", (_, e) => ({ turnId: e.turnId }));
+  on("turn.complete", (_, e) => ({ text: e.answer }));
+  on("prompt.submit", (_, e) => {
+    prompts.push(e.text);
+
+    return { text: e.text };
+  });
   on("fs.write", (_, e) => {
+    if (refuseWrites)
+      return {
+        deny: "a Claude Code settings file is not for plugins outside policy to write; read settings with $.settings.read",
+      };
     writes.push({ path: e.path, text: e.text });
     // A disk that keeps only part of the next write.
     files.set(e.path, corrupt.next ? e.text.slice(0, 5) : e.text);
@@ -564,5 +581,58 @@ test("a managed value is said above the rows", async ($, on) => {
   expect(
     await ui.find({ type: "Text", text: /1 row\(s\) are set by --settings/ }),
   ).toBeDefined();
+  await ui.unmount();
+});
+
+test("where a mod may not write settings, Claude is asked and its turn is checked", async ($, on) => {
+  const LOCAL_FILE = "/repo/.claude/settings.local.json";
+  const files = new Map([[USER_FILE, COMMIT_OFF]]);
+  const writes: { path: string; text: string }[] = [];
+  const ran: string[] = [];
+  const prompts: string[] = [];
+  const clock = mock.clock(on);
+  await fakeSession($, on, { files, writes, ran, prompts, refuseWrites: true });
+
+  const ui = await saveOne($);
+  expect(writes).toEqual([]);
+  expect(prompts.length).toBe(1);
+  const request = prompts[0] ?? "";
+  expect(request).toContain(`${LOCAL_FILE} (local settings)`);
+  expect(request).toContain('skillOverrides["commit"]: (absent) -> "on"');
+  expect(await ui.find({ type: "Text", text: /Waiting for Claude/ })).toBeDefined();
+  expect(ran).toEqual([]);
+
+  // Another turn ending is not the one that carries the request.
+  await $.turn.start({ text: "something else", turnId: "t0" });
+  await $.turn.complete({ answer: "", durationMs: 1, isAborted: false, reason: "answer", turnId: "t0" });
+  expect(await ui.find({ type: "Text", text: /Waiting for Claude/ })).toBeDefined();
+
+  // Claude's turn writes the file.
+  await $.turn.start({ text: request, turnId: "t1" });
+  files.set(LOCAL_FILE, '{\n  "skillOverrides": {\n    "commit": "on"\n  }\n}\n');
+  await $.turn.complete({ answer: "Done.", durationMs: 1, isAborted: false, reason: "answer", turnId: "t1" });
+  await clock.settle();
+
+  expect(await ui.find({ type: "Text", text: /Claude saved 1 change/ })).toBeDefined();
+  expect(await ui.find({ key: "save" })).toBeUndefined();
+  expect(ran).toEqual(["reload-plugins", "reload-skills"]);
+  await ui.unmount();
+});
+
+test("what Claude's turn did not save stays staged", async ($, on) => {
+  const files = new Map([[USER_FILE, COMMIT_OFF]]);
+  const prompts: string[] = [];
+  const clock = mock.clock(on);
+  await fakeSession($, on, { files, prompts, refuseWrites: true });
+
+  const ui = await saveOne($);
+  await $.turn.start({ text: prompts[0] ?? "", turnId: "t1" });
+  await $.turn.complete({ answer: "", durationMs: 1, isAborted: true, reason: "aborted", turnId: "t1" });
+  await clock.settle();
+
+  expect(
+    await ui.find({ type: "Text", text: /1 change\(s\) are not in the files \(the turn was interrupted\)/ }),
+  ).toBeDefined();
+  expect(await ui.find({ key: "confirm" })).toBeDefined();
   await ui.unmount();
 });

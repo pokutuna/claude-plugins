@@ -68,6 +68,14 @@ export type Edit = {
   value: CellValue;
 };
 
+/** A save request sent to Claude whose result is not yet checked. */
+export type Awaiting = {
+  /** Written in the request, so the turn that carries it can be found. */
+  token: string;
+  /** That turn's id, once it starts. */
+  turnId: string | null;
+};
+
 declare module "claude-code" {
   interface PluginState {
     "toggle-plugins": {
@@ -82,6 +90,8 @@ declare module "claude-code" {
       isReviewing: boolean;
       /** True once Esc was refused for unsaved changes; the next Esc discards. */
       isCloseWarned: boolean;
+      /** The save request Claude is working on, checked when its turn ends. */
+      awaiting: Awaiting | null;
     };
   }
 }

@@ -39,8 +39,8 @@ export function shown(value: CellValue): string {
 // ---- saving --------------------------------------------------------------
 //
 // Each file is saved on its own, and refused rather than risked. planFile
-// checks 1-5 on the text read just before the write; saveFile in
-// register.tsx does 6 after it.
+// checks 1-4 on the text read just before the write (checkFile does 1-3);
+// saveFile in register.tsx does 5 after it.
 //   1. the file must parse as a JSON object (a missing or empty file is {})
 //   2. each staged section, when present, must be an object
 //   3. every staged key must still hold the value it held when pressed
@@ -52,6 +52,42 @@ export function shown(value: CellValue): string {
 // comes back in the plain layout; `reformatted` says so.
 // The order of the keys is kept, and a new key goes last in its section. A
 // file whose printing would change more than spacing is refused.
+//
+// Where the built-in sec-default plugin is seated (Team and Enterprise plans,
+// machines with managed settings) a mod may not write a Claude Code settings
+// file. The write is refused before anything is written, and Claude is asked
+// to save the changes instead: checkFile vets each file, saveRequest is the
+// prompt, and the pane reads the files again when that turn ends.
+
+/** Why a file cannot take its staged changes as they stand, or null. */
+export function checkFile(text: string, edits: Edit[]): string | null {
+  let before: Json = {};
+  if (text.trim()) {
+    let value: unknown;
+    try {
+      value = JSON.parse(text);
+    } catch (error) {
+      return `not valid JSON (${String(error)})`;
+    }
+    if (!isObject(value)) return "not a JSON object";
+    before = value;
+  }
+
+  for (const e of edits) {
+    const held = before[e.section];
+    if (held !== undefined && !isObject(held))
+      return `${e.section} is not an object; edit it by hand`;
+  }
+
+  for (const e of edits) {
+    const raw = section(before, e.section)[e.key];
+    const now = raw === undefined ? null : raw;
+    if (now !== e.from)
+      return `${e.section}.${e.key} is now ${JSON.stringify(now)}, not ${shown(e.from)}; refresh and press again`;
+  }
+
+  return null;
+}
 
 /** Whether two JSON values are equal, whatever the order of their keys. */
 export function sameJson(a: unknown, b: unknown): boolean {
@@ -96,32 +132,9 @@ export function planFile(
   text: string,
   edits: Edit[],
 ): { text: string; reformatted: boolean } | { error: string } {
-  let before: Json = {};
-  if (text.trim()) {
-    let value: unknown;
-    try {
-      value = JSON.parse(text);
-    } catch (error) {
-      return { error: `not valid JSON (${String(error)})` };
-    }
-    if (!isObject(value)) return { error: "not a JSON object" };
-    before = value;
-  }
-
-  for (const e of edits) {
-    const held = before[e.section];
-    if (held !== undefined && !isObject(held))
-      return { error: `${e.section} is not an object; edit it by hand` };
-  }
-
-  for (const e of edits) {
-    const raw = section(before, e.section)[e.key];
-    const now = raw === undefined ? null : raw;
-    if (now !== e.from)
-      return {
-        error: `${e.section}.${e.key} is now ${JSON.stringify(now)}, not ${shown(e.from)}; refresh and press again`,
-      };
-  }
+  const problem = checkFile(text, edits);
+  if (problem !== null) return { error: problem };
+  const before: Json = text.trim() ? (JSON.parse(text) as Json) : {};
 
   const indent = /^([ \t]+)"/m.exec(text)?.[1] ?? "  ";
   const eol = text === "" || text.endsWith("\n") ? "\n" : "";
@@ -163,6 +176,34 @@ export function planFile(
   }
 
   return { text: print(after), reformatted };
+}
+
+/** Leads a save request, followed by its token, so its turn can be found. */
+export const REQUEST_TAG = "[toggle-plugins save";
+
+/** One settings file's staged changes, at the path Claude is to edit. */
+export type FileEdits = { path: string; layer: Layer; edits: Edit[] };
+
+/** The prompt that asks Claude to write the staged changes. */
+export function saveRequest(token: string, files: FileEdits[]): string {
+  const value = (v: CellValue) => (v === null ? "(absent)" : JSON.stringify(v));
+  const lines = [
+    `${REQUEST_TAG} ${token}]`,
+    "Write these settings changes, staged in the toggle-plugins pane, to the files below.",
+    "- Edit each file at the path given; it is the real file, not a symlink. Create a missing file holding only these keys.",
+    "- Change only the keys listed. A new value of (absent) means remove the key; remove a section that is left empty.",
+    "- If a key does not hold the current value listed, leave that file unchanged and say so.",
+    "- Do nothing else: read and edit these files only.",
+  ];
+  for (const f of files) {
+    lines.push("", `${f.path} (${f.layer} settings)`);
+    for (const e of f.edits)
+      lines.push(
+        `- ${e.section}[${JSON.stringify(e.key)}]: ${value(e.from)} -> ${value(e.value)}`,
+      );
+  }
+
+  return lines.join("\n");
 }
 
 /** A path as shown: inside this project relative to it, else from `~`. */

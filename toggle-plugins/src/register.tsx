@@ -2,6 +2,7 @@ import { atom, read, update } from "claude-code";
 import type { EngineInterface, Register } from "claude-code";
 
 import type {
+  Awaiting,
   CellValue,
   Edit,
   Layer,
@@ -15,18 +16,21 @@ import type {
 import {
   LAYERS,
   SKILL_MODES,
+  checkFile,
   editId,
   effective,
   isObject,
   nextPluginValue,
   nextSkillValue,
   planFile,
+  REQUEST_TAG,
   sameJson,
+  saveRequest,
   section,
   shortPath,
   shown,
 } from "./logic";
-import type { Json } from "./logic";
+import type { FileEdits, Json } from "./logic";
 
 const PANE = "toggle";
 const COMMAND = "toggle-plugins";
@@ -65,6 +69,12 @@ const reviewingAtom = atom(
 const closeWarnedAtom = atom(
   { plugin: "toggle-plugins", key: "isCloseWarned" } as const,
   false,
+);
+// The save request sent to Claude and not yet checked: its token, and the
+// turn that carries it once that turn starts.
+const awaitingAtom = atom(
+  { plugin: "toggle-plugins", key: "awaiting" } as const,
+  null as Awaiting | null,
 );
 
 /** Written after the name of a skill or command that is not the user's own. */
@@ -385,6 +395,8 @@ async function stage(
 
 async function discard($: $, message: string | null) {
   await update($, pendingAtom, () => []);
+  // A request already sent is no longer checked when its turn ends.
+  await update($, awaitingAtom, () => null);
   await update($, reviewingAtom, () => false);
   await update($, closeWarnedAtom, () => false);
   await update($, messageAtom, () => message);
@@ -394,19 +406,22 @@ async function readText($: $, path: string): Promise<string> {
   return (await $.fs.exists(path)) ? await $.fs.read(path) : "";
 }
 
+/** The file a path names, through a symlink (the user settings may live in dotfiles). */
+async function realFile($: $, path: string): Promise<string> {
+  if (!(await $.fs.exists(path))) return path;
+  const stat = await $.fs.stat(path, { resolve: true });
+
+  return stat.isLink && stat.realPath ? stat.realPath : path;
+}
+
 /**
  * Writes one file's staged changes, or throws why it did not. Answers
  * whether the file's layout changed with them.
  */
 async function saveFile($: $, path: string, edits: Edit[]): Promise<boolean> {
-  let target = path;
   const existed = await $.fs.exists(path);
-  if (existed) {
-    // Write through a symlink (the user settings live in dotfiles) instead of
-    // replacing it with a plain file.
-    const stat = await $.fs.stat(path, { resolve: true });
-    if (stat.isLink && stat.realPath) target = stat.realPath;
-  }
+  // Write through a symlink instead of replacing it with a plain file.
+  const target = await realFile($, path);
 
   // Read just before the write: planFile's check of each pressed key's value
   // is what refuses a file changed since the pane loaded.
@@ -436,15 +451,24 @@ async function saveFile($: $, path: string, edits: Edit[]): Promise<boolean> {
   return plan.reformatted;
 }
 
+/**
+ * What sec-default answers a mod's write of a settings file. The write is
+ * refused before anything is written, so Claude is asked to save instead.
+ */
+const WRITE_REFUSED = "settings file is not for plugins outside policy";
+
+/** Writes the staged changes file by file; where a mod may not, asks Claude. */
 async function saveAll($: $) {
   const snapshot = await read($, snapshotAtom);
   const pending = await read($, pendingAtom);
   if (snapshot === null || pending.length === 0) return;
+  if ((await read($, awaitingAtom)) !== null) return;
 
   const home = (await $.env.get("HOME")) ?? "";
   const saved: Layer[] = [];
   const reformatted = new Set<Layer>();
   let failure: string | null = null;
+  let isRefused = false;
   for (const layer of LAYERS) {
     const path = snapshot.files[layer];
     // An edit for another folder's file is left for refresh() to drop.
@@ -458,7 +482,9 @@ async function saveAll($: $) {
       );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      failure = `Not saved ${shortPath(home, snapshot.cwd, path)}: ${reason}`;
+      isRefused = reason.includes(WRITE_REFUSED);
+      if (!isRefused)
+        failure = `Not saved ${shortPath(home, snapshot.cwd, path)}: ${reason}`;
       break;
     }
   }
@@ -474,15 +500,131 @@ async function saveAll($: $) {
           .join(", ")}`
       : null;
   // A failure keeps the review open, where the unsaved changes are listed.
-  if (failure === null) await update($, reviewingAtom, () => false);
+  if (failure === null && !isRefused)
+    await update($, reviewingAtom, () => false);
   await update($, closeWarnedAtom, () => false);
   await update($, messageAtom, () => done);
   await update($, failureAtom, () => failure);
   await refresh($);
 
+  // The rest goes to Claude, and its turn's end reloads what it saved.
+  if (isRefused) {
+    await sendSave($, done);
+
+    return;
+  }
   // Last, after the pane is up to date: /reload-plugins may load this module
   // again, and what follows the call here would then not run.
   if (saved.length > 0) await applySaved($);
+}
+
+/**
+ * Checks each file, then asks Claude to write the staged changes. `done`
+ * names what the pane saved itself before a write was refused.
+ */
+async function sendSave($: $, done: string | null) {
+  const snapshot = await read($, snapshotAtom);
+  const pending = await read($, pendingAtom);
+  if (snapshot === null || pending.length === 0) return;
+
+  const home = (await $.env.get("HOME")) ?? "";
+  const files: FileEdits[] = [];
+  for (const layer of LAYERS) {
+    const path = snapshot.files[layer];
+    // An edit for another folder's file is left for refresh() to drop.
+    const edits = pending.filter((p) => p.layer === layer && p.file === path);
+    if (edits.length === 0) continue;
+    let problem: string | null;
+    let target = path;
+    try {
+      target = await realFile($, path);
+      problem = checkFile(await readText($, target), edits);
+    } catch (error) {
+      problem = error instanceof Error ? error.message : String(error);
+    }
+    if (problem !== null) {
+      await update(
+        $,
+        failureAtom,
+        () => `Not sent ${shortPath(home, snapshot.cwd, path)}: ${problem}`,
+      );
+
+      return;
+    }
+    files.push({ path: target, layer, edits });
+  }
+  if (files.length === 0) return;
+
+  const count = files.reduce((n, f) => n + f.edits.length, 0);
+  const token = String(await $.clock.now());
+  await update($, awaitingAtom, () => ({ token, turnId: null }));
+  await update($, closeWarnedAtom, () => false);
+  await update($, failureAtom, () => null);
+  await update($, messageAtom, () =>
+    [
+      done,
+      `Claude Code does not let a mod write settings files here, so Claude was asked to save ${count} change(s); the pane checks the files when that turn ends`,
+    ]
+      .filter(Boolean)
+      .join(". "),
+  );
+  const result = await $.prompt.submit({ text: saveRequest(token, files) });
+  if (result.drop !== undefined) {
+    await update($, awaitingAtom, () => null);
+    await update($, messageAtom, () => done);
+    await update($, failureAtom, () => `Not sent: ${result.drop}`);
+  }
+}
+
+/** The value a settings file holds now for a staged change's key. */
+async function heldValue(
+  $: $,
+  cache: Map<string, Json | null>,
+  edit: Edit,
+): Promise<unknown> {
+  if (!cache.has(edit.file)) {
+    try {
+      cache.set(edit.file, await readJson($, edit.file));
+    } catch {
+      cache.set(edit.file, null);
+    }
+  }
+  const settings = cache.get(edit.file);
+  if (settings === null || settings === undefined) return undefined;
+  const value = section(settings, edit.section)[edit.key];
+
+  return value === undefined ? null : value;
+}
+
+/** After Claude's turn: drops what the files now hold, and says what they don't. */
+async function checkSaved($: $, isAborted: boolean) {
+  await update($, awaitingAtom, () => null);
+  await refresh($);
+
+  const cache = new Map<string, Json | null>();
+  const left: Edit[] = [];
+  let saved = 0;
+  for (const p of await read($, pendingAtom)) {
+    if ((await heldValue($, cache, p)) === p.value) saved += 1;
+    else left.push(p);
+  }
+  await update($, pendingAtom, () => left);
+
+  await update($, messageAtom, () =>
+    saved > 0 ? `Claude saved ${saved} change(s).` : null,
+  );
+  await update($, failureAtom, () =>
+    left.length > 0
+      ? `${left.length} change(s) are not in the files${isAborted ? " (the turn was interrupted)" : ""}; press Save to ask again.`
+      : null,
+  );
+  // What is left stays in the review, where it is listed.
+  if (left.length === 0) await update($, reviewingAtom, () => false);
+  await update($, closeWarnedAtom, () => false);
+
+  // Last, after the pane is up to date: /reload-plugins may load this module
+  // again, and what follows the call here would then not run.
+  if (saved > 0) await applySaved($);
 }
 
 const RELOADS = ["reload-plugins", "reload-skills"];
@@ -635,6 +777,39 @@ export const register: Register = (on) => {
     return next(e);
   });
 
+  // The turn that carries a save request is known by the token in its text.
+  on("turn.start", async ($, e, next) => {
+    const result = await next(e);
+    if (e.agentId === undefined) {
+      const awaiting = await read($, awaitingAtom);
+      if (
+        awaiting !== null &&
+        awaiting.turnId === null &&
+        e.text.includes(`${REQUEST_TAG} ${awaiting.token}]`)
+      )
+        await update($, awaitingAtom, () => ({
+          ...awaiting,
+          turnId: e.turnId,
+        }));
+    }
+
+    return result;
+  });
+
+  // When that turn ends, the files are read to see what Claude saved.
+  on("turn.complete", async ($, e, next) => {
+    const result = await next(e);
+    const awaiting = await read($, awaitingAtom);
+    // Not awaited: the reload it ends with waits for the session to be idle,
+    // which it is not until this hook returns.
+    if (awaiting !== null && awaiting.turnId === e.turnId)
+      void checkSaved($, e.isAborted).catch(async (error: unknown) => {
+        await update($, failureAtom, () => `Not checked: ${String(error)}`);
+      });
+
+    return result;
+  });
+
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e);
     const snapshot = await read($, snapshotAtom);
@@ -643,6 +818,7 @@ export const register: Register = (on) => {
     const failure = await read($, failureAtom);
     const pending = await read($, pendingAtom);
     const isReviewing = (await read($, reviewingAtom)) && pending.length > 0;
+    const awaiting = await read($, awaitingAtom);
 
     if (snapshot === null) return <Text dimColor>Loading...</Text>;
 
@@ -704,14 +880,18 @@ export const register: Register = (on) => {
             ),
           )}
           <Box flexDirection="row" gap={1}>
-            <Button
-              key="confirm"
-              hotkey="s"
-              label="Save"
-              variant="primary"
-              autoFocus
-              onPress={() => saveAll($)}
-            />
+            {awaiting !== null ? (
+              <Text color="warning">Waiting for Claude to save...</Text>
+            ) : (
+              <Button
+                key="confirm"
+                hotkey="s"
+                label="Save"
+                variant="primary"
+                autoFocus
+                onPress={() => saveAll($)}
+              />
+            )}
             <Button
               key="back"
               hotkey="b"
@@ -827,8 +1007,7 @@ export const register: Register = (on) => {
     // Each layer's cell is as wide as its name ("project"), so the header reads
     // in full above a 3-cell mark.
     const nameWidth = (names: string[], word: number) => {
-      const fixed =
-        word + 1 + LAYERS.reduce((sum, l) => sum + l.length + 1, 0);
+      const fixed = word + 1 + LAYERS.reduce((sum, l) => sum + l.length + 1, 0);
       const longest = Math.max(...names.map((n) => n.length), 6);
 
       return Math.max(8, Math.min(longest, e.props.bodyColumns - fixed - 1));

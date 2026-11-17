@@ -103,6 +103,16 @@ When one file fails, the files before it stay saved. The pane stays on the revie
 
 The mod API has no rename, so the write is not atomic. If Claude Code dies in the middle of a write, the file may be left cut short.
 
+### When Claude Code refuses the write
+
+On a Team or Enterprise plan, or on a machine with managed settings, Claude Code's built-in policy plugin does not let a mod write its settings files. The write is refused before anything is written (Claude Code 2.1.326), and the pane asks Claude to save the changes instead:
+
+1. Checks 1-3 run on each file first. If one fails, nothing is sent.
+2. The pane sends Claude a prompt that lists each file and each key with its current value and its new value. The prompt starts a turn of its own once the session is idle. The review says `Waiting for Claude to save...` until that turn ends.
+3. When the turn ends, the pane reads the files again. Changes that are now in the files are saved: the pane says how many and runs the reloads. Changes that are not, for example because you interrupted the turn, stay staged; press Save to ask again.
+
+Checks 4 and 5 do not apply to this path: Claude edits the files itself, and the pane checks only the staged keys. If Claude Code lets mods write settings files again, the pane writes them directly as before.
+
 ## Development
 
 ```bash
