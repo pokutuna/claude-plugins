@@ -175,6 +175,12 @@
       "description": "Write and review Japanese UI text",
       "source": "./ui-writing",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/ui-writing"
+    },
+    {
+      "name": "prompts",
+      "description": "Reusable prompts invoked as skills, including excerpts from Anthropic's model-specific prompting guides",
+      "source": "./prompts",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/prompts"
     }
   ]
 }

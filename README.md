@@ -64,3 +64,4 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [bunch](./bunch/) | Split a large or exploratory task into stages and work through them, logging progress and course corrections in a Bunch Document with one Task Document per task |
 | [polish](./polish/) | Skills that revise text and other deliverables |
 | [ui-writing](./ui-writing/) | Write and review Japanese UI text |
+| [prompts](./prompts/) | Reusable prompts invoked as skills, including excerpts from Anthropic's model-specific prompting guides |

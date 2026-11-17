@@ -1,0 +1,14 @@
+{
+  "name": "prompts",
+  "version": "0.1.0",
+  "description": "定型プロンプトを skill として呼び出す置き場",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "prompt",
+    "prompt-engineering",
+    "snippets"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/prompts"
+}
