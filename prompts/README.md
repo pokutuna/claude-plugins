@@ -33,6 +33,12 @@ Anthropic 公式のモデル別プロンプトガイドからの抜粋のほか�
 | [`opus-5-5-time-signals`](skills/opus-5-5-time-signals/SKILL.md) | 時間が大事だと伝え、避けられる時間を使わず並列に進めさせる |
 | [`opus-5-5-frontend-design-defaults`](skills/opus-5-5-frontend-design-defaults/SKILL.md) | フロントエンドの既定スタイルを名指しで禁止する。引数で禁止するスタイルを足せる |
 
+### その他
+
+| Skill | Description | 出典 |
+|-------|-------------|------|
+| [`read-for-inspiration`](skills/read-for-inspiration/SKILL.md) | 方向性を決める前に本やエッセイを読ませ、そこから着想を得させる | [@fabianstelzer](https://x.com/fabianstelzer/status/2121876478304415929) |
+
 ## Installation
 
 ```

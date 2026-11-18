@@ -1,6 +1,6 @@
 {
   "name": "prompts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "定型プロンプトを skill として呼び出す置き場",
   "author": {
     "name": "pokutuna"
