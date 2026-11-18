@@ -4,7 +4,7 @@ allowed-tools:
   - Bash
 ---
 あなたは与えられた kaggle で公開されている discussion を分析する専門家です
-現在のリポジトリで取り組んでいる competition で高い成果を上げるための調査・分析を行うことがあたなのタスクです
+現在のリポジトリで取り組んでいる competition で高い成果を上げるための調査・分析を行うことがあなたのタスクです
 
 <INPUT>
 $ARGUMENTS
@@ -17,17 +17,18 @@ $ARGUMENTS
 ```bash
 # 1. ブラウザを開いて Discussion ページに移動
 playwright-cli open "$URL"
-# 2. 全コメントがロードされるまでスクロール(必要に応じて)
-# 3. スクリプトを実行して Markdown を取得
-playwright-cli run-code --filename=${CLAUDE_PLUGIN_ROOT}/commands/scripts/extract-discussion.mjs
-# 4. ブラウザを閉じる
+# 2. スクリプトを実行して Markdown を標準出力に得る
+#    run-code の結果は JSON 文字列でエンコードされているため、sed と jq でデコードする
+playwright-cli run-code --filename=${CLAUDE_PLUGIN_ROOT}/commands/scripts/extract-discussion.mjs 2>&1 | sed -n '2p' | jq -r '.' | jq -r '.'
+# 3. ブラウザを閉じる
 playwright-cli close
 ```
 
-- run-code の結果は JSON 文字列でエンコードされているため、以下のようにデコードします
-  ```bash
-  playwright-cli run-code --filename=... 2>&1 | sed -n '2p' | jq -r '.' | jq -r '.' > output.md
-  ```
+- 取得した Markdown は標準出力から読み、リポジトリに中間ファイルを作らない
+- playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作る。成果物ではないので、削除せずに残し、コミットにも含めない。リポジトリの `.gitignore` に無ければ、追加するようユーザーに伝える
+
+- スクリプトは、末尾までのスクロールと折りたたまれた返信の展開を行い、全コメントを読み込んでから取得します
+  - 読み込んだコメントが 300 件を超えた時点で読み込みを打ち切ります。そのときは出力の `## Comments (N)` の下に打ち切りの注記が入り、N は読み込めた件数です
 
 ### 分析対象の特定
 - INPUT が空の場合:
@@ -55,12 +56,14 @@ playwright-cli close
 3. discussion の内容をレポート
   - あくまで発言者の意見であることに注意して内容をまとめる
   - 特徴的な発言は `> 発言者名: 発言内容` の形式で引用する
-  - 出力先: `${REPO_ROOT}/competitions/${ID}_${REPLACED_TITLE}.md`
+  - 出力先: `${REPO_ROOT}/kaggle/discussions/${ID}_${REPLACED_TITLE}.md`
     - `REPLACED_TITLE` は、Discussion のタイトルを以下のスクリプトで置換したものとします
-      - `echo "$TITLE" | sed 's/[^a-zA-Z0-9\._-]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g'`
-  - 既に出力先ファイルが存在する場合:
+      - `echo "$TITLE" | sed 's/[^a-zA-Z0-9._-]/-/g' | sed 's/--*/-/g' | sed 's/^-//; s/-$//'`
+  - `kaggle/discussions/` に同じ ID で始まるファイル (`${ID}_` で始まる名前) が既にある場合:
+    - タイトルから作った名前と違っていても、そのファイルを更新する。ファイル名は変えず、同じ ID のファイルを新しく作らない
     - 既存内容を読み込み、新規取得した内容との差分(新規コメント・追加議論)を把握する
-    - 既存の要約・内容は保持し、新たな発見は統合・追記する
+    - `## 要約` と `## 内容` は、新規取得した内容に合わせて書き直してよい。既存の記述が新規取得した内容と食い違うときは、新規取得した内容に合わせて直す
+    - `## コメント・メモ` の既存の行は消さずに残す
     - `## コメント・メモ` に今回の更新日付と追記内容の要約を残す
   - 存在しない場合: 以下のテンプレートに従って新規作成する
 

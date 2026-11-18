@@ -1,10 +1,31 @@
-// Extract Kaggle Discussion page to Markdown
+// Extract a Kaggle Discussion page, or the comments page of a notebook, to Markdown
 // Usage: playwright-cli run-code --filename=extract-discussion.mjs
 
 async (page) => {
+  // コメントは遅延読み込みされ、返信は折りたたまれている。
+  // 件数が増えなくなるまで、末尾へのスクロールと「N more replies」の展開を繰り返す。
+  // 500 件を超えて読み込むとページがクラッシュして何も取れなくなるため、上限で打ち切る
+  const MAX_COMMENTS = 300
+  const comments = page.locator('[data-testid="discussions-comment"]')
+  let prev = -1
+  let stable = 0
+  while (stable < 3 && prev < MAX_COMMENTS) {
+    const more = page.locator("button", { hasText: /more repl/i })
+    while (await more.count() > 0) {
+      await more.first().click()
+      await page.waitForTimeout(300)
+    }
+    await comments.last().scrollIntoViewIfNeeded()
+    await page.waitForTimeout(1500)
+    const n = await comments.count()
+    stable = n === prev ? stable + 1 : 0
+    prev = n
+  }
+  const truncated = stable < 3
+
   await page.addScriptTag({ url: "https://unpkg.com/turndown/dist/turndown.js" })
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate((truncated) => {
     const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" })
 
     function findBodyDiv(container) {
@@ -74,40 +95,49 @@ async (page) => {
       return md
     }
 
-    // --- Topic ---
+    // --- Topic (notebook の comments ページには無い) ---
     const header = document.querySelector('[data-testid="discussions-topic-header"]')
-    if (!header) return JSON.stringify("Error: No discussion found on this page.")
-
-    const title = header.querySelector("h3")?.textContent?.trim() ||
-      document.title.replace(/\s*\|\s*Kaggle$/, "").trim()
-    const meta = parseMeta(header)
-    const topicBody = convertBody(header)
 
     // --- Comments ---
-    const container = document.querySelector('[data-testid="discussion-detail-render-tid"]')
+    const container =
+      document.querySelector('[data-testid="discussion-detail-render-tid"]') ||
+      document.querySelector('[data-testid="notebook-detail-render-tid"]')
     const topLevel = container
       ? [...container.querySelectorAll('[data-testid="discussions-comment"]')]
           .filter(c => !c.parentElement.closest('[data-testid="discussions-comment"]'))
       : []
 
+    if (!header && topLevel.length === 0) {
+      return JSON.stringify("Error: No discussion or comments found on this page.")
+    }
+
     // --- Output ---
-    let output = `# ${title}\n\n`
-    output += `**${fmtMeta(meta)}**\n`
-    output += `URL: ${window.location.href}\n\n`
-    output += "---\n\n"
-    output += topicBody + "\n\n"
+    const pageTitle = document.title.replace(/\s*\|\s*Kaggle$/, "").trim()
+    let output = ""
+    if (header) {
+      const title = header.querySelector("h3")?.textContent?.trim() || pageTitle
+      output += `# ${title}\n\n`
+      output += `**${fmtMeta(parseMeta(header))}**\n`
+      output += `URL: ${window.location.href}\n\n`
+      output += "---\n\n"
+      output += convertBody(header) + "\n\n"
+    } else {
+      output += `# ${pageTitle}\n\n`
+      output += `URL: ${window.location.href}\n\n`
+    }
 
     if (topLevel.length > 0) {
       const comments = flattenComments(topLevel)
       output += "---\n\n"
       output += `## Comments (${comments.length})\n\n`
+      if (truncated) output += "> 読み込みを途中で打ち切ったため、一部のコメントのみ\n\n"
       for (const c of comments) {
         output += formatComment(c)
       }
     }
 
     return JSON.stringify(output)
-  })
+  }, truncated)
 
   return result
 }
