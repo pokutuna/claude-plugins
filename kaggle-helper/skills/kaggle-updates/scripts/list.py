@@ -182,7 +182,7 @@ def recommend(items: list[dict], hot_votes: int | None, rankings) -> None:
     if hot_votes is None:
         return
     threshold = max(hot_votes, 1)
-    for item in sorted(fresh, key=lambda i: -i["votes"]):
+    for item in sorted(cands, key=lambda i: -i["votes"]):
         if len(picked) >= MAX_TOTAL:
             break
         if item not in picked and item["votes"] >= threshold:

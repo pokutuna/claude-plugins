@@ -8,9 +8,10 @@
 Usage:
     uv run fetch.py --session NAME [--session NAME ...] [--listing FILE] <target> [<target> ...]
 
-Pages are read with extract-page.mjs in playwright-cli sessions that are already open
-(playwright-cli -s=NAME open, or attach --extension). This script does not open or close them.
-With several sessions, targets are fetched in parallel, one worker per session.
+Pages are read with extract-page.mjs, using the bundled turndown.js, in playwright-cli
+sessions that are already open (playwright-cli -s=NAME open, or attach --extension).
+This script does not open or close them. With several sessions, targets are fetched in
+parallel, one worker per session. A target given twice is fetched once.
 
 A target is one of:
     https://www.kaggle.com/competitions/<slug>/discussion/<id>
@@ -44,6 +45,8 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 EXTRACT_JS = SCRIPT_DIR / "extract-page.mjs"
+# ログイン済みのブラウザで読むこともあるので、外部から取らずに同梱のものをページに読み込む
+TURNDOWN_JS = SCRIPT_DIR / "turndown.js"
 RUN_CODE_TIMEOUT = 300
 MAX_LINE_CHARS = 400
 MAX_CELL_CHARS = 6000
@@ -89,6 +92,15 @@ class Browser:
         if proc.returncode != 0:
             raise RuntimeError(
                 f"playwright-cli -s={self.name} goto failed (is the session open?): "
+                + (proc.stderr or proc.stdout).strip()[-300:]
+            )
+        proc = self._cli(
+            "run-code",
+            f"async page => {{ await page.addScriptTag({{ path: {json.dumps(str(TURNDOWN_JS))} }}) }}",
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "loading turndown.js failed: "
                 + (proc.stderr or proc.stdout).strip()[-300:]
             )
         proc = self._cli(
@@ -245,9 +257,18 @@ def fetch_notebook(
         "ref": ref,
         "id_no": meta["id_no"],
         "dir": str(target.relative_to(root)),
+        "absDir": str(target),
         "slugChanged": target.name != f"{user}__{slug}",
         **comments_summary(comments),
     }
+
+
+def target_key(target: str, parsed) -> tuple:
+    if parsed is None:
+        return ("invalid", target)
+    if parsed[0] == "discussion":
+        return ("discussion", parsed[2])
+    return parsed
 
 
 def parse_target(target: str):
@@ -269,15 +290,20 @@ def main() -> None:
     root = repo_root()
     listing = json.loads(args.listing.read_text()) if args.listing else {}
 
-    parsed = [(t, parse_target(t)) for t in args.targets]
+    keys = [target_key(t, parse_target(t)) for t in args.targets]
+    # 同じ対象を別のワーカーが同時に取得して、同じディレクトリを作り合わないよう、1 件にまとめる
+    unique: dict[tuple, tuple[str, tuple | None]] = {}
+    for t, k in zip(args.targets, keys):
+        unique.setdefault(k, (t, parse_target(t)))
+    items = list(unique.items())
     # 同じセッションを同時に使わないよう、セッションごとにワーカーを 1 つ置く
-    sessions = args.session[: len(parsed)]
-    queues = [parsed[i :: len(sessions)] for i in range(len(sessions))]
+    sessions = args.session[: len(items)]
+    queues = [items[i :: len(sessions)] for i in range(len(sessions))]
 
-    def work(index: int) -> list[tuple[str, dict]]:
+    def work(index: int) -> list[tuple[tuple, dict]]:
         browser = Browser(sessions[index])
         results = []
-        for target, p in queues[index]:
+        for key, (target, p) in queues[index]:
             try:
                 if p is None:
                     raise ValueError(
@@ -289,15 +315,15 @@ def main() -> None:
                     result = fetch_notebook(
                         root, p[1], p[2], browser, listing.get(f"{p[1]}/{p[2]}")
                     )
-                results.append((target, result))
+                results.append((key, result))
             except Exception as e:  # 1 件の失敗で残りを止めない
-                results.append((target, {"target": target, "error": str(e)}))
+                results.append((key, {"target": target, "error": str(e)}))
         return results
 
     with ThreadPoolExecutor(max_workers=len(sessions)) as pool:
         done = dict(r for rs in pool.map(work, range(len(sessions))) for r in rs)
-    for target, _ in parsed:
-        print(json.dumps(done[target], ensure_ascii=False))
+    for key in keys:
+        print(json.dumps(done[key], ensure_ascii=False))
     sys.exit(1 if any("error" in r for r in done.values()) else 0)
 
 

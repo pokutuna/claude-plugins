@@ -34,8 +34,7 @@ async (page) => {
   }
   const truncated = stable < 3
 
-  await page.addScriptTag({ url: "https://unpkg.com/turndown/dist/turndown.js" })
-
+  // TurndownService は、fetch.py が同梱の turndown.js をページに読み込んで用意する
   const result = await page.evaluate((truncated) => {
     const td = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" })
 

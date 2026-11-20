@@ -77,10 +77,11 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py --session kagg
 
 ```json
 {"type": "discussion", "id": 760095, "dir": "kaggle/discussions/760095_...", "movedLegacy": null, "comments": 1, "commentsTruncated": false}
-{"type": "notebook", "ref": "user/slug", "id_no": 145952068, "dir": "kaggle/notebooks/user__slug", "slugChanged": false, "comments": 0, "commentsTruncated": false}
+{"type": "notebook", "ref": "user/slug", "id_no": 145952068, "dir": "kaggle/notebooks/user__slug", "absDir": "/path/to/repo/kaggle/notebooks/user__slug", "slugChanged": false, "comments": 0, "commentsTruncated": false}
 {"target": "https://example.com/x", "error": "..."}
 ```
 
+- `absDir`: `dir` の絶対パス。Step 3 で使う
 - `commentsTruncated`: コメントが 300 件を超えたため読み込みを打ち切った。`comments` は読み込めた件数
 - `error`: その 1 件は取得できていない。他の件は取得できている
 
@@ -88,15 +89,17 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py --session kagg
 
 ### Step 3: 出力を取得する
 
-`--outputs` があるときだけ行う。取得できた notebook ごとに、`ref` と `dir` を使って次を実行する。
+`--outputs` があるときだけ行う。取得できた notebook ごとに、`ref` と `absDir` を使って次を実行する。`dir` は使わない。作業ディレクトリがリポジトリのルートでないと、別の場所に保存されるため。
 
 ```bash
-kaggle kernels output <ref> -p <dir>/outputs -o
+kaggle kernels output <ref> -p <absDir>/outputs -o
 ```
 
 最新の実行の出力ファイルと、実行ログ `<slug>.log` が `outputs/` に保存される。同じ名前のファイルは上書きされ、今回の実行に無いファイルは前回のものが残る。大きさの上限は無い。
 
-続けて、`<dir>/outputs/.gitignore` を、内容 `*` の 1 行で Write ツールで書く。`outputs/` をディレクトリごと git の管理外にするためのもので、Write で書くのはこのファイルだけである。
+出力に `Next page token:` の行があれば、出力ファイルが 1 ページに収まらず、最初のページのぶんだけが保存されている。kaggle CLI には続きのページを取る方法が無いので、取り直さずに、一部だけであることを報告する。
+
+続けて、`<absDir>/outputs/.gitignore` を、内容 `*` の 1 行で Write ツールで書く。`outputs/` をディレクトリごと git の管理外にするためのもので、Write で書くのはこのファイルだけである。
 
 ### Step 4: ブラウザを閉じ、結果を返す
 
@@ -106,7 +109,7 @@ kaggle kernels output <ref> -p <dir>/outputs -o
 
 - 取得できた件ごとに、`dir` と、コメントの件数
 - `movedLegacy`、`slugChanged`、`commentsTruncated` があった件
-- `--outputs` があれば、件ごとに保存したファイルの名前。取得に失敗した件は、そのエラー
+- `--outputs` があれば、件ごとに保存したファイルの名前。`Next page token:` が出た件は、一部だけであること。取得に失敗した件は、そのエラー
 - 失敗した件と `error` の内容。原因の見当がつけば添える (Troubleshooting を参照)
 - リポジトリの `.gitignore` に `.playwright-cli/` が無いとき (`.gitignore` が無いときも含む) は、追加の依頼。playwright-cli が作業ディレクトリに作るログで、成果物ではない。`.gitignore` は自分では作らず、書き換えない
 
