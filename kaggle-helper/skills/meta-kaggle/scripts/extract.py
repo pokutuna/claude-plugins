@@ -198,7 +198,7 @@ def extract(
     if topic_count == 0:
         result["warning"] = (
             "No forum topics found. The competition may be too new for meta-kaggle to have data. "
-            "Consider using Kaggle API or /kaggle-discussion skill to fetch discussions directly."
+            "Consider using Kaggle API or the kaggle-fetch skill to fetch discussions directly."
         )
     print(json.dumps(result, indent=2))
 
