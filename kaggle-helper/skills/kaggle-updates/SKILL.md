@@ -64,7 +64,7 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
     "hotVotes": 4,
     "items": [
       {"id": 756934, "title": "...", "url": "https://www.kaggle.com/competitions/<slug>/discussion/756934",
-       "votes": 12, "comments": 8, "activity": "comment", "activityAt": "2026-11-15T23:24:28+09:00", "pinned": false,
+       "votes": 12, "comments": 8, "activity": "comment", "activityAt": "2026-11-15T23:24:28+09:00", "pinned": false, "byAdmin": false,
        "state": "updated", "localDir": "kaggle/discussions/756934_...", "recommended": true, "reason": "votes 上位"}
     ]
   },
@@ -89,13 +89,14 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
   3. votes が `hotVotes` (そのコンペで votes が 20 位のものの votes) 以上の候補は、10 件を超えても加える。上限は 30 件。discussion または notebook が全部で 20 件に満たないコンペでは、その種類の `hotVotes` は `null` で、この基準は使わない
 - `score`: 公開スコア。提出していない notebook は `null`。`scoreOrder` は良いスコアの向きで、`ascending` は小さいほうが良い
 - `prevScore`: 前回取得したときのスコア
+- `byAdmin`: コンペの主催者が立てたトピックなら `true`
 - `truncated`: `true` のときは一覧のページを送りきれずに打ち切っている。日付を新しくして実行し直す
 
 ### Step 2: 取り込むものを決める
 
 `recommended` が `true` のものを取り込む。推奨を自分で入れ替えたり、件数を減らしたりしない。
 
-推奨に加えて、タイトルから、コンペの主催者による告知、ルールやデータの変更、評価指標の不具合だと読み取れる discussion は、`state` が `fetched` 以外なら選ぶ。
+推奨に加えて、`byAdmin` が `true` の discussion と、タイトルからルールやデータの変更、評価指標の不具合だと読み取れる discussion は、`state` が `fetched` 以外なら選ぶ。
 ユーザーが選び方を指定していれば、推奨と上の追加の代わりに、その指定だけで選ぶ。
 
 種類ごとに、表でユーザーに示す。並びはスクリプトの出力の順 (最終活動か実行の新しい順) のままにする。
