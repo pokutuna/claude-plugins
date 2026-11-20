@@ -1,6 +1,6 @@
 ---
 name: kaggle-updates
-description: 開催中の Kaggle コンペで最近更新された discussion と公開 notebook を一覧し、未取得のものと更新のあったものを件数の基準で選んで、取得と分析を行う。"discussion の更新を確認", "最近の notebook を取り込む", "コンペの更新を取り込む", "kaggle-updates" などで起動。
+description: 開催中の Kaggle コンペで最近更新された discussion と公開 notebook を一覧し、未取得のものと更新のあったものを votes と公開スコアの順位で選んで、取得と分析を行う。"discussion の更新を確認", "最近の notebook を取り込む", "コンペの更新を取り込む", "kaggle-updates" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
 argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [出力も] [選び方の指定]"
 allowed-tools:
@@ -72,7 +72,7 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
 - `recommended` と `reason`: 次の基準による推奨。候補は `new` と `updated`
   1. 候補が 10 件以下なら、すべて
   2. 11 件以上なら上位 10 件。discussion は votes 順。notebook はスコア上位と votes 上位を交互に取る。スコアが前回の取得から変わっていない `updated` の notebook は、残りの枠に回す
-  3. votes が `hotVotes` (そのコンペで votes が 20 位のものの votes) 以上の候補は、10 件を超えても加える。上限は 30 件。全体が 20 件に満たないコンペでは `hotVotes` は `null` で、この基準は使わない
+  3. votes が `hotVotes` (そのコンペで votes が 20 位のものの votes) 以上の候補は、10 件を超えても加える。上限は 30 件。discussion または notebook が全部で 20 件に満たないコンペでは、その種類の `hotVotes` は `null` で、この基準は使わない
 - `score`: 公開スコア。提出していない notebook は `null`。`scoreOrder` は良いスコアの向きで、`ascending` は小さいほうが良い
 - `prevScore`: 前回取得したときのスコア
 - `truncated`: `true` のときは一覧のページを送りきれずに打ち切っている。日付を新しくして実行し直す
@@ -105,7 +105,7 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 
 ### Step 3: 取り込む
 
-1. 取り込むものの `url` を discussion と notebook のぶんすべて引数にし、notebook を含むときは先頭に `--listing <listingFile>` を付けて、`kaggle-fetch` skill を 1 回だけ実行する。`出力も` の指定があれば `--outputs` (上限を外すときは `--outputs-all`) も付ける。取得は Sonnet の subagent が行う。結果が返るまで待つ
+1. `kaggle-fetch` skill を 1 回だけ実行し、取り込む discussion と notebook の `url` をすべて引数に渡す。notebook を含むときは、先頭に `--listing <listingFile>` を付ける。`出力も` の指定があれば `--outputs` を、上限を外すときは `--outputs-all` を付ける。取得は Sonnet の subagent が行うので、結果が返るまで待つ
 2. 取得できたものの `dir` をすべて引数にして、`kaggle-analyze` skill を実行する。取得に失敗したものは分析しない
 
 `取得だけ` の指定があれば、1 で止める。

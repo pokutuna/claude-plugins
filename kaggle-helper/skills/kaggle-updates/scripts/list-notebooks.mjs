@@ -81,9 +81,7 @@ async (page) => {
     await page.getByRole("option", { name: /Public Score/ }).click()
     await page.waitForURL(/sortBy=score/, { timeout: 10000 })
     scoreOrder = /sortBy=scoreDescending/.test(page.url()) ? "descending" : "ascending"
-  } catch {
-    scoreOrder = null
-  }
+  } catch {}
 
   const result = [...notebooks.values()]
     .filter(n => n.runAt && new Date(n.runAt) >= since)

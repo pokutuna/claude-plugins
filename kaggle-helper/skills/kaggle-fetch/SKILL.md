@@ -60,7 +60,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
 ```
 
 - `commentsTruncated`: コメントが 300 件を超えたため読み込みを打ち切った。`comments` は読み込めた件数
-- `outputs`: `--outputs` か `--outputs-all` を付けたときの、出力の取得結果。`downloaded` は取得したファイル、`skipped` は取得しなかったファイルとそのサイズ (`bytes`) と理由 (`too_large` は上限を超えた)。1 件も取得しなかったときは `dir` が `null` で、前回の出力が残っている
+- `outputs`: `--outputs` か `--outputs-all` を付けたときの、出力の取得結果。`downloaded` は取得したファイル、`skipped` は取得しなかったファイルとそのサイズ (`bytes`) と理由 (`too_large` は上限を超えた、`size_unknown` はサイズが分からなかった、`unsafe_path` はファイル名が保存先の外を指していた)。1 件も取得しなかったときは `dir` が `null` で、前回の出力が残っている
 - `error`: その 1 件は取得できていない。他の件は取得できている
 
 取得したファイルは書き換えない。失敗した件を、別の方法 (snapshot や innerText) で取得して補ったり、代わりの内容をファイルに書いたりしない。

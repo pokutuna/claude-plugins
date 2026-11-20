@@ -89,7 +89,7 @@ def state_of(fetched: Path | None, latest: str | None) -> str:
 def discussion_state(root: Path, topic: dict) -> dict:
     base = root / "kaggle" / "discussions"
     fetched = next(iter(base.glob(f"{topic['id']}_*/discussion.md")), None)
-    # 取得した内容を残していなかった頃の、分析だけのファイル
+    # 旧形式の、分析だけのファイル (<id>_<タイトル>.md)
     fetched = fetched or next(
         (p for p in base.glob(f"{topic['id']}_*.md") if p.is_file()), None
     )
@@ -118,7 +118,7 @@ def notebook_state(root: Path, nb: dict) -> dict:
     fetched = None
     prev_score = None
     if d:
-        # 取得の印は kernel-metadata.json。それが無い頃に取得したものは .ipynb
+        # 取得の印は kernel-metadata.json。それを保存しない旧形式で取得したものは .ipynb
         fetched = (
             d / "kernel-metadata.json"
             if (d / "kernel-metadata.json").exists()
@@ -155,7 +155,7 @@ def recommend(items: list[dict], hot_votes: int | None, rankings) -> None:
     fresh = [i for i in cands if i not in stale]
 
     picked: list[dict] = []
-    lists = [(label, [i for i in rank(fresh)]) for label, rank in rankings]
+    lists = [(label, rank(fresh)) for label, rank in rankings]
     while len(picked) < TOP and any(lst for _, lst in lists):
         for label, lst in lists:
             while lst and lst[0] in picked:
@@ -198,7 +198,6 @@ def main() -> None:
     since = args.since or (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     root = repo_root()
     result: dict = {"slug": args.slug, "since": since}
-    # 時刻は、一覧ではローカル時刻に直して出す
 
     if args.kind in ("discussion", "both"):
         data = run_listing(

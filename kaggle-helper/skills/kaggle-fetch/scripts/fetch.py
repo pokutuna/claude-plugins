@@ -126,7 +126,7 @@ def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> di
     if dirs:
         target = dirs[0]
     elif legacy:
-        # 取得した内容を残していなかった頃のファイル (分析だけ) は、ディレクトリの analysis.md にする
+        # 旧形式の分析だけのファイル (<id>_<タイトル>.md) は、ディレクトリの analysis.md にする
         target = base / legacy[0].stem
         target.mkdir()
         legacy[0].rename(target / "analysis.md")

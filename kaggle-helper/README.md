@@ -8,15 +8,15 @@ Kaggle のコンペティションリサーチを支援する Claude Code プラ
 |-------|-------------|
 | `kaggle-fetch` | discussion と notebook を取得して保存する。分析はしない。Sonnet の subagent で動く |
 | `kaggle-analyze` | 取得済みの discussion と notebook を分析し、`analysis.md` を書く。このセッションのモデルで動き、複数件は subagent で並列に分析する |
-| `kaggle-updates` | 開催中のコンペで最近更新された discussion と notebook を一覧し、未取得・更新ありのものを件数の基準で選んで取得と分析を行う |
+| `kaggle-updates` | 開催中のコンペで最近更新された discussion と notebook を一覧し、未取得・更新ありのものを votes と公開スコアの順位で選んで取得と分析を行う |
 | `meta-kaggle` | kaggle/meta-kaggle データセットをダウンロードし、コンペ別にディスカッションを検索・分析 |
 
 `kaggle-analyze` は、取得していないものを渡されると、先に `kaggle-fetch` で取得する。
 
-`kaggle-updates` は、期間内に活動のあったもののうち未取得と更新ありのものから、次の基準で選ぶ。
+`kaggle-updates` は、指定した日以降に活動のあったもののうち未取得と更新ありのものから、次の基準で選ぶ。
 
 1. 候補が 10 件以下なら、すべて
-2. 11 件以上なら上位 10 件。discussion は votes 順、notebook は公開スコア上位と votes 上位を半分ずつ
+2. 11 件以上なら上位 10 件。discussion は votes 順、notebook は公開スコア上位と votes 上位を交互に取る
 3. そのコンペで votes が 20 位のものの votes 以上の候補は、10 件を超えても加える (上限 30 件)
 
 出力先は、実行したリポジトリの `kaggle/` 以下。
@@ -38,7 +38,7 @@ kaggle/
 
 notebook の出力は、`kaggle-fetch` に `--outputs` を付けたときと、分析で出力を確かめる必要があったときだけ取得する。合計 100MB を超えるぶんは、ユーザーが求めたとき (`--outputs-all`) だけ取得する。`outputs/` は、中に置く `.gitignore` で git の管理外になる。
 
-以前の形式の `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/analysis.md` へ移す。
+旧形式の分析だけのファイル `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/analysis.md` へ移す。
 
 ## Prerequisites
 

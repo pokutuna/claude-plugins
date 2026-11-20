@@ -30,7 +30,7 @@ user-invocable: true
 
 取得した内容 (discussion は `discussion.md`、notebook は `source.md`) が無いものは、先に `kaggle-fetch` skill で取得する。取得してから分析する。
 
-引数が無ければ、分析が無いか、取得より古いものをすべて対象にする。
+引数が無ければ、`analysis.md` が無いもの、または `analysis.md` が取得したファイルより古いものをすべて対象にする。
 
 ```bash
 uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py
@@ -48,9 +48,9 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py
 notebook の分析では、出力を見る必要があれば、手順のファイルに従って出力を取得する。そのスクリプトは `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/outputs.py` である。
 上限 (合計 100MB) を外す `--all` は、ユーザーが求めたときだけ付ける。
 
-**対象が 1 件**のときは、そのファイルを読み、自分で分析して `analysis.md` を書く。
+対象が 1 件のときは、そのファイルを読み、自分で分析して `analysis.md` を書く。
 
-**対象が 2 件以上**のときは、1 件ごとに Agent ツールで subagent を起動し、並列に分析させる。
+対象が 2 件以上のときは、1 件ごとに Agent ツールで subagent を起動し、並列に分析させる。
 
 - `subagent_type` は `general-purpose` にし、`model` は指定しない。このセッションのモデルが使われる
 - 同時に起動するのは 5 件までにする。それより多ければ、終わった分から次を起動する
@@ -63,7 +63,7 @@ analysis.md は書かない。analysis.md に書く内容の全文を、最終�
 出力を取得するときのスクリプト: <outputs.py のパス>
 ```
 
-subagent はファイルを書けない (harness が `.md` の Write を拒否することがある)。返ってきた全文を、このセッションが `<ディレクトリ>/analysis.md` に書く。
+subagent では、harness が `.md` の Write を拒否することがある。このため subagent には全文を返させ、このセッションが `<ディレクトリ>/analysis.md` に書く。
 
 - 全文は書き換えずにそのまま書く
 - 既存の `analysis.md` があれば、Write の前に Read する。全文には既存の内容を引き継いだものが入っている
