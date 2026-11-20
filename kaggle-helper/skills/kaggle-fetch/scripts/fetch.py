@@ -14,7 +14,7 @@ A target is one of:
     <user>/<slug>
 
 Discussion -> kaggle/discussions/<id>_<title>/discussion.md
-    A legacy kaggle/discussions/<id>_<title>.md (analysis only) is moved to <id>_<title>/analysis.md.
+    A legacy kaggle/discussions/<id>_<title>.md (analysis only) is moved to <id>_<title>/insights.md.
 Notebook   -> kaggle/notebooks/<user>__<slug>/
     <code file> and kernel-metadata.json (kaggle kernels pull -m), comments.md, source.md
     (the code without outputs, long lines and cells cut short, for reading).
@@ -126,11 +126,11 @@ def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> di
     if dirs:
         target = dirs[0]
     elif legacy:
-        # 旧形式の分析だけのファイル (<id>_<タイトル>.md) は、ディレクトリの analysis.md にする
+        # 旧形式の分析だけのファイル (<id>_<タイトル>.md) は、ディレクトリの insights.md にする
         target = base / legacy[0].stem
         target.mkdir()
-        legacy[0].rename(target / "analysis.md")
-        moved = str((target / "analysis.md").relative_to(root))
+        legacy[0].rename(target / "insights.md")
+        moved = str((target / "insights.md").relative_to(root))
     else:
         title = re.match(r"^# (.+)$", markdown, re.M)
         target = base / f"{disc_id}_{safe_title(title.group(1) if title else disc_id)}"

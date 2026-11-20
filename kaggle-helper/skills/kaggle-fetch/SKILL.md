@@ -42,7 +42,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
 スクリプトは、playwright-cli のセッションを分けて最大 4 件を並列に取得する。保存先はリポジトリのルート (git の作業ツリーのルート) の `kaggle/` 以下である。
 
 - discussion: `kaggle/discussions/<id>_<タイトル>/discussion.md`
-  - 旧形式の `kaggle/discussions/<id>_<タイトル>.md` (分析だけのファイル) があれば、そのディレクトリの `analysis.md` に移す
+  - 旧形式の `kaggle/discussions/<id>_<タイトル>.md` (分析だけのファイル) があれば、そのディレクトリの `insights.md` に移す
 - notebook: `kaggle/notebooks/<user>__<slug>/`
   - `kaggle kernels pull -m` で取得したコードのファイルと `kernel-metadata.json`
   - `comments.md`: コメントページの内容

@@ -7,7 +7,7 @@ Kaggle のコンペティションリサーチを支援する Claude Code プラ
 | Skill | Description |
 |-------|-------------|
 | `kaggle-fetch` | discussion と notebook を取得して保存する。分析はしない。Sonnet の subagent で動く |
-| `kaggle-analyze` | 取得済みの discussion と notebook を分析し、`analysis.md` を書く。このセッションのモデルで動き、複数件は subagent で並列に分析する |
+| `kaggle-analyze` | 取得済みの discussion と notebook を分析し、`insights.md` を書く。このセッションのモデルで動き、複数件は subagent で並列に分析する |
 | `kaggle-updates` | 開催中のコンペで最近更新された discussion と notebook を一覧し、未取得・更新ありのものを votes と公開スコアの順位で選んで取得と分析を行う |
 | `meta-kaggle` | kaggle/meta-kaggle データセットをダウンロードし、コンペ別にディスカッションを検索・分析 |
 
@@ -25,7 +25,7 @@ Kaggle のコンペティションリサーチを支援する Claude Code プラ
 kaggle/
   discussions/<ID>_<タイトル>/
     discussion.md                  # 取得した本文とコメント
-    analysis.md                    # 分析
+    insights.md                    # 分析
   notebooks/<USER>__<SLUG>/
     <SLUG>.ipynb                   # 取得した notebook
     kernel-metadata.json           # kernel id とデータソース
@@ -33,12 +33,12 @@ kaggle/
     comments.md                    # 取得したコメント
     listing.json                   # kaggle-updates で取得したときの一覧のスコアなど
     outputs/                       # 最新の実行の出力 (指定したときと、分析に必要なときだけ。git 管理外)
-    analysis.md                    # 分析
+    insights.md                    # 分析
 ```
 
 notebook の出力は、`kaggle-fetch` に `--outputs` を付けたときと、分析で出力を確かめる必要があったときだけ取得する。合計 100MB を超えるぶんは、ユーザーが求めたとき (`--outputs-all`) だけ取得する。`outputs/` は、中に置く `.gitignore` で git の管理外になる。
 
-旧形式の分析だけのファイル `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/analysis.md` へ移す。
+旧形式の分析だけのファイル `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/insights.md` へ移す。
 
 ## Prerequisites
 

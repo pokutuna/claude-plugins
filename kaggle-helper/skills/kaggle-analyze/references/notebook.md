@@ -11,7 +11,7 @@
 - `kernel-metadata.json`: 使っているデータセット (`dataset_sources`)、notebook (`kernel_sources`)、モデル (`model_sources`)、コンペ (`competition_sources`)、GPU (`enable_gpu`)、インターネット (`enable_internet`)
 - `listing.json`: 一覧で読んだ公開スコア (`score`) と実行日時 (`runAt`)。無いこともある。提出していない notebook では `score` が `null`
 - `outputs/`: 最新の実行の出力ファイルと実行ログ (`<slug>.log`)。取得したときだけある
-- `analysis.md`: 既存の分析。あれば読む
+- `insights.md`: 既存の分析。あれば読む
 
 元の `.ipynb` と `outputs/` のファイルは大きいことがあるので、全体を Read しない。必要な箇所だけを、`rg` や Read の範囲指定で読む。
 
@@ -50,11 +50,11 @@ uv run <outputs.py のパス> <user>/<slug>
    - コードで確かめていないことには `(推測)` を付ける
    - タイトル、Markdown セル、コメントの主張は「作者は〜としている」のように主張として書き、コードがしていることと分ける。たとえばタイトルに "verified" とあっても、コードは他の notebook の出力を混ぜているだけ、ということがある
 
-## 既存の analysis.md があるとき
+## 既存の insights.md があるとき
 
 - 既存の内容を読み、今回の分析との差分を把握する
 - 既存の知見は失わず、更新があれば反映し、新たな発見は統合して追記する
-- 既存の analysis.md の構成 (見出し) は、このテンプレートと違っていても、そのまま使う。テンプレートの構成に書き直さない
+- 既存の insights.md の構成 (見出し) は、このテンプレートと違っていても、そのまま使う。テンプレートの構成に書き直さない
 - 先頭の `取得:` と `公開スコア:` の行があれば、今回の値に書き換える
 - `## メモ・更新履歴` の既存の行は消さずに残し、今回の日付 (ローカル時刻) と追記した内容の要約を 1 行足す
 
@@ -68,7 +68,7 @@ uv run <outputs.py のパス> <user>/<slug>
 
 ## テンプレート
 
-既存の `analysis.md` が無ければ、このテンプレートで書く。
+既存の `insights.md` が無ければ、このテンプレートで書く。
 
 - `取得:` の行の取得日時は `source.md` の `取得:` から、実行日時は `listing.json` の `runAt` から書く。日時は `YYYY-MM-DD HH:MM` の形のローカル時刻にする。`listing.json` が無ければ `(実行 ...)` を書かない
 - `公開スコア:` の行は、`listing.json` の `score` があるときだけ書く。無ければ行ごと書かない

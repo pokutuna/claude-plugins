@@ -9,7 +9,7 @@ Usage:
     uv run pending.py
 
 A directory is pending when its fetched files (discussion.md, or source.md and comments.md)
-exist and analysis.md is missing or older than the newest of them.
+exist and insights.md is missing or older than the newest of them.
 Directories fetched before the fetch/analysis split (no discussion.md or source.md) are skipped.
 Prints one JSON object per pending directory, relative to the repository root.
 """
@@ -35,7 +35,7 @@ def main() -> None:
             fetched = [d / n for n in names if (d / n).exists()]
             if not fetched or not (d / names[0]).exists():
                 continue
-            analysis = d / "analysis.md"
+            analysis = d / "insights.md"
             newest = max(p.stat().st_mtime for p in fetched)
             if not analysis.exists() or analysis.stat().st_mtime < newest:
                 print(
