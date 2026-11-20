@@ -9,7 +9,7 @@ OpenAI Codex CLI に質問し、Claude Code から独立した AI の意見を�
 
 `/ask-codex` は Codex の Auto 相当の権限で起動する。Codex はワークスペース内でファイル編集とコマンド実行を自動で行える。ワークスペース外への書き込みやネットワークアクセスは、Codex が必要に応じて承認を求める。
 
-`/codex-review` は差分レビュー専用で、`--sandbox read-only` に固定して起動する。Codex はファイルを編集しない。`codex exec review` は対象フラグ (`--uncommitted` / `--base` / `--commit`) とレビュー観点の同時指定を許さないため、観点を指定した場合はレビュー範囲をプロンプト側で伝える。
+`/codex-review` は差分レビュー専用で、`--sandbox read-only` に固定して起動する。Codex はファイルを編集しない。受け取った finding は Claude が吟味して評価を添え、どれに対応するかをユーザーに確認する。`codex exec review` は対象フラグ (`--uncommitted` / `--base` / `--commit`) とレビュー観点の同時指定を許さないため、観点を指定した場合はレビュー範囲をプロンプト側で伝える。
 
 両 skill は `scripts/` 配下の wrapper script (`share-path.sh` / `run-codex.sh` / `wait-codex.sh` / `list-models.sh`) を共用する。
 

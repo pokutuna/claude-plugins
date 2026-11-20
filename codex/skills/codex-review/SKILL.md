@@ -143,7 +143,7 @@ PROMPT
 
 `--sandbox danger-full-access` と `--dangerously-bypass-approvals-and-sandbox` は使用してはならない。
 
-### 3. Present results
+### 3. Wait for completion
 
 wrapper 起動後、codex は background で実行され続けるので、完了をポーリングで待つ。次のコマンドを `EXIT ...` が出力されるまで繰り返し実行する。
 
@@ -155,14 +155,30 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/wait-codex.sh "<冒頭で確定した TRANSCR
 
 大きな差分を `xhigh` 以上の effort でレビューすると 30〜60 分かかることがある。RUNNING が続いても異常ではないので、last activity が更新されている限り根気よくポーリングを続ける。最初の RUNNING を確認した時点で、レビューには数十分かかりうることをユーザーに一度伝えておく。
 
-- `EXIT 0`: `RESULT_FILE` を Read し、Claude 自身のレビューとは独立した Codex の結果として提示する。finding の優先度、タイトル、ファイル位置、全体評価を変更せずに伝える。末尾に `RESULT_FILE` と `TRANSCRIPT_FILE` のパスを示す
+- `EXIT 0`: Step 4 に進む
 - `EXIT 143` / `EXIT 137`: watchdog による停止の可能性が高い。`LOG_FILE` 末尾の `watchdog:` 行を確認し、無活動または実行時間超過で停止した旨を報告する
 - その他の `0` 以外: `LOG_FILE` (`${TRANSCRIPT_FILE%.jsonl}.log`) と `TRANSCRIPT_FILE` の末尾を確認し、失敗内容を報告する
 - `DEAD (...)`: codex プロセスが exit code を残さず消えている (クラッシュや再起動)。`LOG_FILE` と `TRANSCRIPT_FILE` の末尾を確認して状況を報告し、ポーリングを終了する
 - 結果が保存されていない場合、推測で finding を作ってはならない
 
-この skill はファイル編集、コミット、レビューコメントの投稿を行わない。
-修正が必要な場合は、レビュー結果を提示した後にユーザーから別途依頼を受ける。
+### 4. Evaluate findings and ask
+
+`RESULT_FILE` を Read し、finding ごとに該当箇所のコードを読んで吟味する。
+Codex の指摘をそのまま受け入れず、不要と判断する場合も根拠を示す。
+
+- 指摘は事実か (コードの読み違いや誤った前提がないか)
+- 対応すべきか (実害の有無、変更の意図や既存の方針との整合)
+
+次の形で提示する。
+
+- Codex の finding は優先度、タイトル、ファイル位置、全体評価を変えずに示す
+- 各 finding に Claude の評価 (対応を推奨 / 対応不要 / 要判断) と理由を添える
+- 末尾に `RESULT_FILE` と `TRANSCRIPT_FILE` のパスを示す
+
+finding が 1 つ以上あれば、`AskUserQuestion` でどれに対応するかを確認する。
+選択肢は「推奨どおり対応」「対応する finding を指定」「対応しない」などにする。
+修正はユーザーの回答を受けてから行い、回答前にファイルを編集しない。
+コミットやレビューコメントの投稿はこの skill では行わない。
 
 ## Examples
 
