@@ -33,7 +33,7 @@
 
 - `--style`: 書き直し方針。`clarify` (既定) か `concise`。`skills/gemini-rewrite/assets/styles/` にファイルを足せば増やせる
 - `--provider`: 認証が複数あるときに使う provider
-- `GEMINI_REWRITE_MODEL`: モデル (既定 `gemini-4-argon`)。Claude Code では `settings.json` の `env` に書く
+- `GEMINI_REWRITE_MODEL`: モデル (既定 `gemini-4-neon`)。Claude Code では `settings.json` の `env` に書く
 
 ### 動作
 

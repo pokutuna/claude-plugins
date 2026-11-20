@@ -13,7 +13,7 @@
 #       --check            Check that srt sandboxes commands, then send the model a one-line
 #                          prompt with the same settings. Exits non-zero if either fails.
 #   -m, --model MODEL      pi model pattern, optionally "provider/id" or "id:thinking"
-#                          (default: $GEMINI_REWRITE_MODEL or gemini-4-argon)
+#                          (default: $GEMINI_REWRITE_MODEL or gemini-4-neon)
 #       --provider NAME    google (Gemini API) or google-vertex (Vertex AI)
 #                          (default: pi picks one with credentials)
 #   -t, --thinking LEVEL   off|minimal|low|medium|high|xhigh|max
@@ -35,7 +35,7 @@ system_prompt_file="${script_dir}/../assets/system-prompt.md"
 styles_dir="${script_dir}/../assets/styles"
 guard_extension="${script_dir}/guard.ts"
 
-model=${GEMINI_REWRITE_MODEL:-gemini-4-argon}
+model=${GEMINI_REWRITE_MODEL:-gemini-4-neon}
 provider=
 thinking=medium
 style=clarify
