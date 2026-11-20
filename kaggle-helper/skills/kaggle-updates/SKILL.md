@@ -2,9 +2,10 @@
 name: kaggle-updates
 description: 開催中の Kaggle コンペで最近更新された discussion と公開 notebook を一覧し、未取得のものと更新のあったものを votes と公開スコアの順位で選んで、取得と分析を行う。"discussion の更新を確認", "最近の notebook を取り込む", "コンペの更新を取り込む", "kaggle-updates" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
-argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [出力も] [選び方の指定]"
+argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [出力も] [--extension] [選び方の指定]"
 allowed-tools:
-  - "Bash(uv run *)"
+  - "Bash(uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py *)"
+  - "Bash(playwright-cli *)"
   - "Bash(rg *)"
   - Read
   - Skill
@@ -24,19 +25,32 @@ user-invocable: true
 - 日付 (`YYYY-MM-DD`): この日以降に活動のあったものを対象にする。引数に無ければ 7 日前とする。年の無い日付は、今日以前で最も近い日付と解釈する。日付はローカル時刻の 0 時と解釈される
 - 種類: `discussion` か `notebook` の一方だけを対象にする。無ければ両方
 - `取得だけ`: 取得して止める。分析しない
-- `出力も`: notebook の出力ファイルも取得する。合計 100MB を超えるぶんは取得しない。ユーザーがサイズに関係なくすべて求めたときだけ、上限を外す
-- `分析だけ`: 一覧を取らず、取得済みで分析がまだのもの、または分析の後に取得し直したものを分析する。`kaggle-analyze` skill を引数なしで実行して終わる
+- `出力も`: notebook の最新の実行の出力ファイルと実行ログも取得する
+- `分析だけ`: 一覧を取らず、取得済みで `insights.md` が無いものを分析する。`kaggle-analyze` skill を引数なしで実行して終わる
+- `--extension`: 一覧と取得のページを、ユーザーの Chrome で読む。ログインが要るページを取るときに使う
 - 選び方の指定 (「votes 10 以上」「スコア上位 5 件」「GPU を使うもの」など): Step 2 の推奨の代わりに、その指定だけで選ぶ
 
 ## Instructions
 
 ### Step 1: 一覧を取得する
 
+一覧は playwright-cli のブラウザで読む。`--extension` が無ければ `kaggle-list` という名前のセッションでブラウザを開き、あればユーザーの Chrome につなぐ。Chrome に Playwright の拡張機能が入っていて、ユーザーがつなぐことを許可する必要がある。
+
 ```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py [--kind discussion|notebook] --since <YYYY-MM-DD> <slug>
+playwright-cli -s=kaggle-list open
+# --extension があるとき
+playwright-cli attach --extension --session=kaggle-list
 ```
 
-スクリプトは discussion の一覧と Code タブを playwright-cli で読み、`kaggle/` のファイルと比べて、取り込むものの推奨を付ける。1 分ほどかかる。
+開いたセッションの名前を渡して、スクリプトを実行する。
+
+```bash
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py --session kaggle-list [--kind discussion|notebook] --since <YYYY-MM-DD> <slug>
+```
+
+スクリプトは discussion の一覧と Code タブを読み、`kaggle/` のファイルと比べて、取り込むものの推奨を付ける。1 分ほどかかる。
+
+スクリプトが失敗しても、終わったらセッションを閉じる。開いたものは `playwright-cli -s=kaggle-list close`、つないだものは `playwright-cli -s=kaggle-list detach` で閉じる。ユーザーの Chrome は閉じない。
 playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作る。成果物ではないので、削除せずに残し、コミットにも含めない。
 
 出力は次の JSON である。時刻はローカル時刻。
@@ -105,7 +119,7 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 
 ### Step 3: 取り込む
 
-1. `kaggle-fetch` skill を 1 回だけ実行し、取り込む discussion と notebook の `url` をすべて引数に渡す。notebook を含むときは、先頭に `--listing <listingFile>` を付ける。`出力も` の指定があれば `--outputs` を、上限を外すときは `--outputs-all` を付ける。取得は Sonnet の subagent が行うので、結果が返るまで待つ
+1. `kaggle-fetch` skill を 1 回だけ実行し、取り込む discussion と notebook の `url` をすべて引数に渡す。notebook を含むときは、先頭に `--listing <listingFile>` を付ける。`出力も` の指定があれば `--outputs` を、`--extension` があれば `--extension` を付ける。取得は Sonnet の subagent が行うので、結果が返るまで待つ
 2. 取得できたものの `dir` をすべて引数にして、`kaggle-analyze` skill を実行する。取得に失敗したものは分析しない
 
 `取得だけ` の指定があれば、1 で止める。
@@ -152,7 +166,12 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 ### `items` が空
 
 原因: 日付以降に活動が無いか、一覧の DOM が変わって読み取れていない。
-対処: 日付を古くして実行する。それでも空なら、`playwright-cli open <一覧の URL>` と `playwright-cli snapshot` でページの構造を確かめ、ユーザーに伝える。
+対処: 日付を古くして実行する。それでも空なら、`playwright-cli -s=kaggle-list open <一覧の URL>` と `playwright-cli -s=kaggle-list snapshot` でページの構造を確かめ、ユーザーに伝える。
+
+### `goto failed (is the session open?)`
+
+原因: ブラウザを開いていないか、セッション名が違う。
+対処: `playwright-cli list` で開いているセッションを確かめ、Step 1 のブラウザを開くところからやり直す。
 
 ### `scoreOrder` が `null`
 

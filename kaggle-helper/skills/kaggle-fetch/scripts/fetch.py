@@ -6,7 +6,11 @@
 """Fetch Kaggle discussions and notebooks into kaggle/ of the current repository.
 
 Usage:
-    uv run fetch.py [--jobs N] [--listing FILE] [--outputs | --outputs-all] <target> [<target> ...]
+    uv run fetch.py --session NAME [--session NAME ...] [--listing FILE] <target> [<target> ...]
+
+Pages are read with extract-page.mjs in playwright-cli sessions that are already open
+(playwright-cli -s=NAME open, or attach --extension). This script does not open or close them.
+With several sessions, targets are fetched in parallel, one worker per session.
 
 A target is one of:
     https://www.kaggle.com/competitions/<slug>/discussion/<id>
@@ -21,10 +25,8 @@ Notebook   -> kaggle/notebooks/<user>__<slug>/
     An existing directory with the same kernel id (id_no) is reused even if the slug changed
     (slugChanged: true in the output).
     With --listing (the listingFile of kaggle-updates' list.py), the notebook's score, votes,
-    comments and runAt in the listing are saved to listing.json with fetchedAt.
-    With --outputs, the output files of the notebook's latest run are also downloaded into
-    outputs/ by outputs.py, up to 100MB in total (--outputs-all: no limit, only when the user
-    asked for it). The result goes into "outputs" of the notebook's line.
+    comments and runAt in the listing are saved to listing.json with fetchedAt. Without it,
+    an existing listing.json is removed.
 
 Prints one JSON object per target on stdout, in input order.
 """
@@ -41,8 +43,7 @@ from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-EXTRACT_JS = SCRIPT_DIR / "extract-discussion.mjs"
-OUTPUTS_PY = SCRIPT_DIR / "outputs.py"
+EXTRACT_JS = SCRIPT_DIR / "extract-page.mjs"
 RUN_CODE_TIMEOUT = 300
 MAX_LINE_CHARS = 400
 MAX_CELL_CHARS = 6000
@@ -69,11 +70,10 @@ def safe_title(title: str) -> str:
 
 
 class Browser:
-    """One playwright-cli session per worker so that workers can run in parallel."""
+    """A playwright-cli session opened by the caller. Each worker uses its own session."""
 
     def __init__(self, name: str):
         self.name = name
-        self.opened = False
 
     def _cli(self, *args: str, timeout: int = 120) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -84,9 +84,13 @@ class Browser:
         )
 
     def extract(self, url: str) -> str:
-        """Open url and return the Markdown produced by extract-discussion.mjs."""
-        self._cli("goto" if self.opened else "open", url)
-        self.opened = True
+        """Go to url and return the Markdown produced by extract-page.mjs."""
+        proc = self._cli("goto", url)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"playwright-cli -s={self.name} goto failed (is the session open?): "
+                + (proc.stderr or proc.stdout).strip()[-300:]
+            )
         proc = self._cli(
             "run-code", f"--filename={EXTRACT_JS}", timeout=RUN_CODE_TIMEOUT
         )
@@ -98,10 +102,6 @@ class Browser:
                 raise RuntimeError(markdown)
             return markdown
         raise RuntimeError("extract failed: " + " ".join(out[:6])[:500])
-
-    def close(self) -> None:
-        if self.opened:
-            self._cli("close")
 
 
 def comments_summary(markdown: str) -> dict:
@@ -203,6 +203,8 @@ def fetch_notebook(
             )
         meta = json.loads(meta_path.read_text())
         code_file = Path(tmp) / meta["code_file"]
+        # コメントを取れなかったときに、コードだけ新しくして取得済みに見せないよう、ファイルを置く前に取る
+        comments = browser.extract(f"https://www.kaggle.com/code/{ref}/comments")
 
         base = root / "kaggle" / "notebooks"
         base.mkdir(parents=True, exist_ok=True)
@@ -225,16 +227,19 @@ def fetch_notebook(
         f"# {meta['title']}\n\nURL: https://www.kaggle.com/code/{ref}\n取得: {now_local()}\n\n"
         + condense(target / meta["code_file"])
     )
-    comments = browser.extract(f"https://www.kaggle.com/code/{ref}/comments")
     (target / "comments.md").write_text(comments)
+    listing_path = target / "listing.json"
     if listing:
         # 次の一覧で、スコアが前回の取得から変わったかを見るために残す
-        (target / "listing.json").write_text(
+        listing_path.write_text(
             json.dumps(
                 {**listing, "fetchedAt": now_local()},
                 ensure_ascii=False,
             )
         )
+    elif listing_path.exists():
+        # 前回の一覧のスコアと実行日時を、今回取得したコードのものとして分析に使わせない
+        listing_path.unlink()
     return {
         "type": "notebook",
         "ref": ref,
@@ -255,68 +260,42 @@ def parse_target(target: str):
     return None
 
 
-def attach_outputs(done: dict, all_sizes: bool) -> None:
-    """Download the outputs of the fetched notebooks with outputs.py, into each result's "outputs"."""
-    notebooks = [r for r in done.values() if r.get("type") == "notebook"]
-    if not notebooks:
-        return
-    cmd = ["uv", "run", "--quiet", str(OUTPUTS_PY)] + (["--all"] if all_sizes else [])
-    proc = subprocess.run(
-        cmd + [r["ref"] for r in notebooks], capture_output=True, text=True
-    )
-    lines = [json.loads(l) for l in proc.stdout.splitlines() if l.startswith("{")]
-    for r, out in zip(notebooks, lines):
-        r["outputs"] = out
-    for r in notebooks[len(lines) :]:
-        r["outputs"] = {"error": f"outputs.py failed: {proc.stderr.strip()[-500:]}"}
-
-
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--session", action="append", required=True)
     ap.add_argument("--listing", type=Path)
-    ap.add_argument("--outputs", action="store_true")
-    ap.add_argument("--outputs-all", action="store_true")
     ap.add_argument("targets", nargs="+")
     args = ap.parse_args()
     root = repo_root()
     listing = json.loads(args.listing.read_text()) if args.listing else {}
 
     parsed = [(t, parse_target(t)) for t in args.targets]
-    jobs = max(1, min(args.jobs, len(parsed)))
-    # ワーカーごとにブラウザのセッションを分け、同じセッションを同時に使わない
-    queues = [parsed[i::jobs] for i in range(jobs)]
+    # 同じセッションを同時に使わないよう、セッションごとにワーカーを 1 つ置く
+    sessions = args.session[: len(parsed)]
+    queues = [parsed[i :: len(sessions)] for i in range(len(sessions))]
 
     def work(index: int) -> list[tuple[str, dict]]:
-        browser = Browser(f"kaggle-fetch-{index}")
+        browser = Browser(sessions[index])
         results = []
-        try:
-            for target, p in queues[index]:
-                try:
-                    if p is None:
-                        raise ValueError(
-                            "not a Kaggle discussion URL, notebook URL or <user>/<slug>"
-                        )
-                    if p[0] == "discussion":
-                        results.append(
-                            (target, fetch_discussion(root, p[1], p[2], browser))
-                        )
-                    else:
-                        results.append(
-                            (target, fetch_notebook(
-                                    root, p[1], p[2], browser, listing.get(f"{p[1]}/{p[2]}")
-                                ))
-                        )
-                except Exception as e:  # 1 件の失敗で残りを止めない
-                    results.append((target, {"target": target, "error": str(e)}))
-        finally:
-            browser.close()
+        for target, p in queues[index]:
+            try:
+                if p is None:
+                    raise ValueError(
+                        "not a Kaggle discussion URL, notebook URL or <user>/<slug>"
+                    )
+                if p[0] == "discussion":
+                    result = fetch_discussion(root, p[1], p[2], browser)
+                else:
+                    result = fetch_notebook(
+                        root, p[1], p[2], browser, listing.get(f"{p[1]}/{p[2]}")
+                    )
+                results.append((target, result))
+            except Exception as e:  # 1 件の失敗で残りを止めない
+                results.append((target, {"target": target, "error": str(e)}))
         return results
 
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
-        done = dict(r for rs in pool.map(work, range(jobs)) for r in rs)
-    if args.outputs or args.outputs_all:
-        attach_outputs(done, args.outputs_all)
+    with ThreadPoolExecutor(max_workers=len(sessions)) as pool:
+        done = dict(r for rs in pool.map(work, range(len(sessions))) for r in rs)
     for target, _ in parsed:
         print(json.dumps(done[target], ensure_ascii=False))
     sys.exit(1 if any("error" in r for r in done.values()) else 0)

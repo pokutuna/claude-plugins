@@ -1,5 +1,5 @@
 // Extract a Kaggle Discussion page, or the comments page of a notebook, to Markdown
-// Usage: playwright-cli run-code --filename=extract-discussion.mjs
+// Usage: playwright-cli run-code --filename=extract-page.mjs
 
 async (page) => {
   // コメントは遅延読み込みされ、返信は折りたたまれている。

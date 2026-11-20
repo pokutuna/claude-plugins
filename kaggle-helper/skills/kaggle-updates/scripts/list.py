@@ -7,7 +7,11 @@
 and recommend which to fetch.
 
 Usage:
-    uv run list.py [--kind discussion|notebook|both] [--since YYYY-MM-DD] <competition-slug>
+    uv run list.py --session NAME [--kind discussion|notebook|both] [--since YYYY-MM-DD] <competition-slug>
+
+The listings are read with list-discussions.mjs and list-notebooks.mjs in the playwright-cli
+session NAME, which the caller has opened (playwright-cli -s=NAME open, or attach --extension).
+This script does not open or close it.
 
 The date is local midnight. Without it, 7 days ago.
 
@@ -55,11 +59,13 @@ def run_listing(url: str, script: str, session: str) -> dict:
             timeout=timeout,
         )
 
-    try:
-        cli("open", url)
-        proc = cli("run-code", f"--filename={SCRIPT_DIR / script}", timeout=900)
-    finally:
-        cli("close")
+    proc = cli("goto", url)
+    if proc.returncode != 0:
+        sys.exit(
+            f"playwright-cli -s={session} goto failed (is the session open?): "
+            + (proc.stderr or proc.stdout).strip()[-300:]
+        )
+    proc = cli("run-code", f"--filename={SCRIPT_DIR / script}", timeout=900)
     out = (proc.stdout + proc.stderr).splitlines()
     # 出力は "### Result" の次の行に、JSON 文字列を JSON 文字列にしたものが入る
     if len(out) >= 2 and out[0].strip() == "### Result":
@@ -193,6 +199,7 @@ def main() -> None:
         "--kind", choices=["discussion", "notebook", "both"], default="both"
     )
     ap.add_argument("--since")
+    ap.add_argument("--session", required=True)
     ap.add_argument("slug")
     args = ap.parse_args()
     since = args.since or (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
@@ -203,7 +210,7 @@ def main() -> None:
         data = run_listing(
             f"https://www.kaggle.com/competitions/{args.slug}/discussion#since={since}",
             "list-discussions.mjs",
-            "kaggle-list-discussions",
+            args.session,
         )
         items = data["topics"]
         for t in items:
@@ -226,7 +233,7 @@ def main() -> None:
         data = run_listing(
             f"https://www.kaggle.com/competitions/{args.slug}/code#since={since}",
             "list-notebooks.mjs",
-            "kaggle-list-notebooks",
+            args.session,
         )
         items = data["notebooks"]
         for n in items:

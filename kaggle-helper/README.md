@@ -19,7 +19,7 @@ kaggle-updates ── 一覧して選ぶ
    └─> kaggle-analyze ── 分析する ──> insights.md
 ```
 
-`kaggle-fetch` と `kaggle-analyze` は単独でも使える。`kaggle-analyze` に未取得のものを渡すと、先に `kaggle-fetch` で取得する。引数なしで実行すると、`insights.md` が無いもの、または取得し直した後に分析していないものをすべて分析する。
+`kaggle-fetch` と `kaggle-analyze` は単独でも使える。`kaggle-analyze` に未取得のものを渡すと、先に `kaggle-fetch` で取得する。引数なしで実行すると、`insights.md` が無いものをすべて分析する。取得し直したものを分析し直すときは、そのディレクトリを引数に渡す。
 
 ## 使い方
 
@@ -48,11 +48,13 @@ kaggle/
     source.md              # 出力を除き、長い行とセルを切り詰めたコード
     comments.md            # コメント
     listing.json           # kaggle-updates の一覧で読んだスコアと実行日時
-    outputs/               # 最新の実行の出力 (git 管理外)
+    outputs/               # 実行の出力とログ。--outputs を付けたときだけ (git 管理外)
     insights.md            # 分析
 ```
 
-notebook の出力は、`--outputs` を付けたときと、分析で出力を確かめる必要があったときだけ取得する。合計 100MB を超えるぶんは、`--outputs-all` を付けたときだけ取得する。
+notebook の出力は、`kaggle-fetch` に `--outputs` を付けたとき (`kaggle-updates` では `出力も`) だけ、`kaggle kernels output` で取得する。同じ名前のファイルは上書きし、前回の実行にだけあったファイルは残る。
+
+ページは、ログインしていないヘッドレスのブラウザで読む。参加者だけが見られる discussion などを取るときは、`--extension` を付けると、Playwright の拡張機能を通してユーザーの Chrome で読む。
 
 旧形式の分析ファイル `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/insights.md` へ移す。
 
