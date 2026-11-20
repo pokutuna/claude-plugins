@@ -2,7 +2,7 @@
 name: kaggle-fetch
 description: Kaggle の discussion と公開 notebook を取得し、リポジトリの kaggle/ 以下に保存する。分析はしない。"discussion を取得", "notebook を取り込む", "kaggle-fetch" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
-argument-hint: "<discussion URL | notebook URL | user/slug> ..."
+argument-hint: "[--listing <file>] <discussion URL | notebook URL | user/slug> ..."
 context: fork
 model: sonnet
 allowed-tools:
@@ -22,7 +22,9 @@ user-invocable: true
 - discussion: `https://www.kaggle.com/competitions/<slug>/discussion/<id>`
 - notebook: `https://www.kaggle.com/code/<user>/<slug>` (末尾の `/comments` などは無視される) か `<user>/<slug>`
 
-引数が無いか、どの形式にも当てはまらないものがあれば、取得せずにその旨を返す。
+`--listing <ファイル>` は `kaggle-updates` skill が付ける。notebook の一覧で読んだスコアなどを、取得した notebook のディレクトリに `listing.json` として残すためのもので、そのままスクリプトに渡す。
+
+取得するものが無いか、`--listing` 以外にどの形式にも当てはまらないものがあれば、取得せずにその旨を返す。
 
 ## Instructions
 
@@ -42,6 +44,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
   - `kaggle kernels pull -m` で取得したコードのファイルと `kernel-metadata.json`
   - `comments.md`: コメントページの内容
   - `source.md`: 出力を除き、長い行とセルを切り詰めたコード。分析ではこれを読む
+  - `listing.json`: `--listing` があるときだけ。一覧で読んだスコア、votes、コメント数、実行日時と、取得日時
   - 同じ kernel id (`kernel-metadata.json` の `id_no`) のディレクトリがあれば、slug が変わっていてもそこに保存する
 
 出力は 1 件ごとに 1 行の JSON である。

@@ -6,7 +6,7 @@
 """Fetch Kaggle discussions and notebooks into kaggle/ of the current repository.
 
 Usage:
-    uv run fetch.py [--jobs N] <target> [<target> ...]
+    uv run fetch.py [--jobs N] [--listing FILE] <target> [<target> ...]
 
 A target is one of:
     https://www.kaggle.com/competitions/<slug>/discussion/<id>
@@ -20,6 +20,8 @@ Notebook   -> kaggle/notebooks/<user>__<slug>/
     (the code without outputs, long lines and cells cut short, for reading).
     An existing directory with the same kernel id (id_no) is reused even if the slug changed
     (slugChanged: true in the output).
+    With --listing (the listingFile of kaggle-updates' list.py), the notebook's score, votes,
+    comments and runAt in the listing are saved to listing.json with fetchedAt.
 
 Prints one JSON object per target on stdout, in input order.
 """
@@ -32,6 +34,7 @@ import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -171,7 +174,9 @@ def find_notebook_dir(base: Path, id_no: int, user: str, slug: str) -> Path:
     return base / f"{user}__{slug}"
 
 
-def fetch_notebook(root: Path, user: str, slug: str, browser: Browser) -> dict:
+def fetch_notebook(
+    root: Path, user: str, slug: str, browser: Browser, listing: dict | None = None
+) -> dict:
     ref = f"{user}/{slug}"
     with tempfile.TemporaryDirectory() as tmp:
         proc = subprocess.run(
@@ -210,6 +215,14 @@ def fetch_notebook(root: Path, user: str, slug: str, browser: Browser) -> dict:
     )
     comments = browser.extract(f"https://www.kaggle.com/code/{ref}/comments")
     (target / "comments.md").write_text(comments)
+    if listing:
+        # 次の一覧で、スコアが前回の取得から変わったかを見るために残す
+        (target / "listing.json").write_text(
+            json.dumps(
+                {**listing, "fetchedAt": datetime.now().astimezone().isoformat()},
+                ensure_ascii=False,
+            )
+        )
     return {
         "type": "notebook",
         "ref": ref,
@@ -233,9 +246,11 @@ def parse_target(target: str):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--listing", type=Path)
     ap.add_argument("targets", nargs="+")
     args = ap.parse_args()
     root = repo_root()
+    listing = json.loads(args.listing.read_text()) if args.listing else {}
 
     parsed = [(t, parse_target(t)) for t in args.targets]
     jobs = max(1, min(args.jobs, len(parsed)))
@@ -258,7 +273,9 @@ def main() -> None:
                         )
                     else:
                         results.append(
-                            (target, fetch_notebook(root, p[1], p[2], browser))
+                            (target, fetch_notebook(
+                                    root, p[1], p[2], browser, listing.get(f"{p[1]}/{p[2]}")
+                                ))
                         )
                 except Exception as e:  # 1 件の失敗で残りを止めない
                     results.append((target, {"target": target, "error": str(e)}))

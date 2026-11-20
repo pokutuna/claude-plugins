@@ -4,10 +4,12 @@
 //   playwright-cli run-code --filename=list-discussions.mjs
 //
 // 開いているページの URL からコンペの slug と since を読み、最終活動 (投稿または最後のコメント) が
-// since より古いトピックだけのページに達するまでページを送る。since が無ければ 7 日前とする
+// since より古いトピックだけのページに達するまでページを送る。since が無ければ 7 日前とする。
+// hotVotes は、votes 順で 20 位のトピックの votes (ピン留めを除く。20 件に満たなければ null)
 
 async (page) => {
   const MAX_PAGES = 10
+  const HOT_RANK = 20
   const current = new URL(page.url())
   const slug = current.pathname.match(/^\/competitions\/([^/]+)/)?.[1]
   if (!slug) return JSON.stringify({ error: "not_competition_page", url: page.url() })
@@ -15,19 +17,15 @@ async (page) => {
   const sinceArg = current.hash.match(/since=(\d{4}-\d{2}-\d{2})/)?.[1]
   const since = sinceArg ? new Date(`${sinceArg}T00:00:00`) : new Date(Date.now() - 7 * 86400 * 1000)
 
-  const topics = new Map()
-  let truncated = true
-  for (let p = 1; p <= MAX_PAGES; p++) {
-    await page.goto(`https://www.kaggle.com/competitions/${slug}/discussion?sort=recent-comments&page=${p}`)
-    const rows = page.locator('li a[href*="/discussion/"]')
+  // 一覧の 1 ページを読む。トピックの無いページなら null
+  const readPage = async (url) => {
+    await page.goto(url)
     try {
-      await rows.first().waitFor({ timeout: 15000 })
+      await page.locator('li a[href*="/discussion/"]').first().waitFor({ timeout: 15000 })
     } catch {
-      truncated = false // トピックの無いページ = 最後のページを過ぎた
-      break
+      return null
     }
-
-    const items = await page.evaluate(() => {
+    return page.evaluate(() => {
       const isTopicLink = a => /\/discussion\/\d+$/.test(a.getAttribute("href") || "")
       return [...document.querySelectorAll("li")].flatMap(li => {
         const link = [...li.querySelectorAll('a[href*="/discussion/"]')].find(isTopicLink)
@@ -47,7 +45,16 @@ async (page) => {
         }]
       })
     })
+  }
 
+  const topics = new Map()
+  let truncated = true
+  for (let p = 1; p <= MAX_PAGES; p++) {
+    const items = await readPage(`https://www.kaggle.com/competitions/${slug}/discussion?sort=recent-comments&page=${p}`)
+    if (!items) {
+      truncated = false // トピックの無いページ = 最後のページを過ぎた
+      break
+    }
     for (const t of items) if (!topics.has(t.id)) topics.set(t.id, t)
 
     // ピン留めは活動時刻に関係なく先頭に並ぶため、打ち切りの判定から除く
@@ -58,8 +65,19 @@ async (page) => {
     }
   }
 
+  // ピン留めは votes 順でも先頭に並ぶため除く
+  let top = []
+  for (let p = 1; p <= 3 && top.length < HOT_RANK; p++) {
+    const items = await readPage(`https://www.kaggle.com/competitions/${slug}/discussion?sort=votes&page=${p}`)
+    if (!items) break
+    top.push(...items.filter(t => !t.pinned).map(t => t.votes))
+  }
+  top = top.slice(0, HOT_RANK)
+  // 20 件に満たないコンペは盛り上がっているとはいえないので、水準を置かない
+  const hotVotes = top.length >= HOT_RANK ? Math.min(...top) : null
+
   const result = [...topics.values()]
     .filter(t => t.activityAt && new Date(t.activityAt) >= since)
     .sort((a, b) => b.activityAt.localeCompare(a.activityAt))
-  return JSON.stringify({ slug, since: since.toISOString(), truncated, topics: result })
+  return JSON.stringify({ slug, since: since.toISOString(), truncated, hotVotes, topics: result })
 }
