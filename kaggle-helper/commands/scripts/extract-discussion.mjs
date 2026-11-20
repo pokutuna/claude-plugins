@@ -6,6 +6,12 @@ async (page) => {
   // 件数が増えなくなるまで、末尾へのスクロールと「N more replies」の展開を繰り返す。
   // 500 件を超えて読み込むとページがクラッシュして何も取れなくなるため、上限で打ち切る
   const MAX_COMMENTS = 300
+  // discussion はトピックの見出し、notebook の comments ページはコメント欄の描画を待つ。
+  // コメントが 0 件でも描画されるため、これ以降は件数 0 を「コメントが無い」と判断できる
+  await page
+    .locator('[data-testid="discussions-topic-header"], [data-testid="notebook-detail-render-tid"]')
+    .first()
+    .waitFor({ timeout: 30000 })
   const comments = page.locator('[data-testid="discussions-comment"]')
   let prev = -1
   let stable = 0
@@ -15,7 +21,12 @@ async (page) => {
       await more.first().click()
       await page.waitForTimeout(300)
     }
-    await comments.last().scrollIntoViewIfNeeded()
+    // 0 件のときに最後のコメントへスクロールすると、要素の出現を 30 秒待ってタイムアウトする
+    if (await comments.count() > 0) {
+      await comments.last().scrollIntoViewIfNeeded()
+    } else {
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    }
     await page.waitForTimeout(1500)
     const n = await comments.count()
     stable = n === prev ? stable + 1 : 0
@@ -107,7 +118,7 @@ async (page) => {
           .filter(c => !c.parentElement.closest('[data-testid="discussions-comment"]'))
       : []
 
-    if (!header && topLevel.length === 0) {
+    if (!header && !container) {
       return JSON.stringify("Error: No discussion or comments found on this page.")
     }
 
@@ -126,14 +137,13 @@ async (page) => {
       output += `URL: ${window.location.href}\n\n`
     }
 
-    if (topLevel.length > 0) {
-      const comments = flattenComments(topLevel)
-      output += "---\n\n"
-      output += `## Comments (${comments.length})\n\n`
-      if (truncated) output += "> 読み込みを途中で打ち切ったため、一部のコメントのみ\n\n"
-      for (const c of comments) {
-        output += formatComment(c)
-      }
+    // 0 件でも見出しを出し、コメントが無いことを取得結果に残す
+    const comments = flattenComments(topLevel)
+    output += "---\n\n"
+    output += `## Comments (${comments.length})\n\n`
+    if (truncated) output += "> 読み込みを途中で打ち切ったため、一部のコメントのみ\n\n"
+    for (const c of comments) {
+      output += formatComment(c)
     }
 
     return JSON.stringify(output)

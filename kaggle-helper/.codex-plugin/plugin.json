@@ -1,6 +1,6 @@
 {
   "name": "kaggle-helper",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Kaggle discussion and notebook analysis commands for competition research",
   "author": {
     "name": "pokutuna"
