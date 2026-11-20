@@ -2,7 +2,7 @@
 name: kaggle-updates
 description: 開催中の Kaggle コンペで最近更新された discussion と公開 notebook を一覧し、未取得のものと更新のあったものを件数の基準で選んで、取得と分析を行う。"discussion の更新を確認", "最近の notebook を取り込む", "コンペの更新を取り込む", "kaggle-updates" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
-argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [選び方の指定]"
+argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [出力も] [選び方の指定]"
 allowed-tools:
   - "Bash(uv run *)"
   - "Bash(rg *)"
@@ -24,6 +24,7 @@ user-invocable: true
 - 日付 (`YYYY-MM-DD`): この日以降に活動のあったものを対象にする。引数に無ければ 7 日前とする。年の無い日付は、今日以前で最も近い日付と解釈する。日付はローカル時刻の 0 時と解釈される
 - 種類: `discussion` か `notebook` の一方だけを対象にする。無ければ両方
 - `取得だけ`: 取得して止める。分析しない
+- `出力も`: notebook の出力ファイルも取得する。合計 100MB を超えるぶんは取得しない。ユーザーがサイズに関係なくすべて求めたときだけ、上限を外す
 - `分析だけ`: 一覧を取らず、取得済みで分析がまだのもの、または分析の後に取得し直したものを分析する。`kaggle-analyze` skill を引数なしで実行して終わる
 - 選び方の指定 (「votes 10 以上」「スコア上位 5 件」「GPU を使うもの」など): Step 2 の推奨の代わりに、その指定だけで選ぶ
 
@@ -104,7 +105,7 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 
 ### Step 3: 取り込む
 
-1. 取り込むものの `url` を discussion と notebook のぶんすべて引数にし、notebook を含むときは先頭に `--listing <listingFile>` を付けて、`kaggle-fetch` skill を 1 回だけ実行する。取得は Sonnet の subagent が行う。結果が返るまで待つ
+1. 取り込むものの `url` を discussion と notebook のぶんすべて引数にし、notebook を含むときは先頭に `--listing <listingFile>` を付けて、`kaggle-fetch` skill を 1 回だけ実行する。`出力も` の指定があれば `--outputs` (上限を外すときは `--outputs-all`) も付ける。取得は Sonnet の subagent が行う。結果が返るまで待つ
 2. 取得できたものの `dir` をすべて引数にして、`kaggle-analyze` skill を実行する。取得に失敗したものは分析しない
 
 `取得だけ` の指定があれば、1 で止める。

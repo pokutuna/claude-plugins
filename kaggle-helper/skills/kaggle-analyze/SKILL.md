@@ -45,18 +45,22 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py
 - discussion: `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/references/discussion.md`
 - notebook: `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/references/notebook.md`
 
+notebook の分析では、出力を見る必要があれば、手順のファイルに従って出力を取得する。そのスクリプトは `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/outputs.py` である。
+上限 (合計 100MB) を外す `--all` は、ユーザーが求めたときだけ付ける。
+
 **対象が 1 件**のときは、そのファイルを読み、自分で分析して `analysis.md` を書く。
 
 **対象が 2 件以上**のときは、1 件ごとに Agent ツールで subagent を起動し、並列に分析させる。
 
 - `subagent_type` は `general-purpose` にし、`model` は指定しない。このセッションのモデルが使われる
 - 同時に起動するのは 5 件までにする。それより多ければ、終わった分から次を起動する
-- プロンプトは次の文面をそのまま使い、`<種類>`、`<手順のファイル>`、`<ディレクトリ>` だけを埋める。空欄を残さない
+- プロンプトは次の文面をそのまま使い、`<種類>`、`<手順のファイル>`、`<ディレクトリ>` を埋める。notebook のときは最後の 1 行も付け、`<outputs.py のパス>` を埋める。discussion のときは最後の 1 行を付けない。空欄を残さない
 
 ```
 Kaggle の <種類> を分析する。手順とテンプレートは <手順のファイル> にある。最初にそのファイルを読み、それに従うこと。
 対象のディレクトリ: <リポジトリのルートの絶対パス>/<ディレクトリ>
-ファイルは書かない。analysis.md に書く内容の全文を、最終応答として返すこと。応答には全文だけを書き、前置きや後書きを付けない。
+analysis.md は書かない。analysis.md に書く内容の全文を、最終応答として返すこと。応答には全文だけを書き、前置きや後書きを付けない。
+出力を取得するときのスクリプト: <outputs.py のパス>
 ```
 
 subagent はファイルを書けない (harness が `.md` の Write を拒否することがある)。返ってきた全文を、このセッションが `<ディレクトリ>/analysis.md` に書く。

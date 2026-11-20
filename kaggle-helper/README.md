@@ -32,8 +32,11 @@ kaggle/
     source.md                      # 出力を除き、長い行とセルを切り詰めたコード
     comments.md                    # 取得したコメント
     listing.json                   # kaggle-updates で取得したときの一覧のスコアなど
+    outputs/                       # 最新の実行の出力 (指定したときと、分析に必要なときだけ。git 管理外)
     analysis.md                    # 分析
 ```
+
+notebook の出力は、`kaggle-fetch` に `--outputs` を付けたときと、分析で出力を確かめる必要があったときだけ取得する。合計 100MB を超えるぶんは、ユーザーが求めたとき (`--outputs-all`) だけ取得する。`outputs/` は、中に置く `.gitignore` で git の管理外になる。
 
 以前の形式の `discussions/<ID>_<タイトル>.md` は、その discussion を次に取得するときに `<ID>_<タイトル>/analysis.md` へ移す。
 

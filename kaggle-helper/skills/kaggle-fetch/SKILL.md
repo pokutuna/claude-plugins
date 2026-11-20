@@ -2,7 +2,7 @@
 name: kaggle-fetch
 description: Kaggle の discussion と公開 notebook を取得し、リポジトリの kaggle/ 以下に保存する。分析はしない。"discussion を取得", "notebook を取り込む", "kaggle-fetch" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
-argument-hint: "[--listing <file>] <discussion URL | notebook URL | user/slug> ..."
+argument-hint: "[--outputs | --outputs-all] [--listing <file>] <discussion URL | notebook URL | user/slug> ..."
 context: fork
 model: sonnet
 allowed-tools:
@@ -24,7 +24,10 @@ user-invocable: true
 
 `--listing <ファイル>` は `kaggle-updates` skill が付ける。notebook の一覧で読んだスコアなどを、取得した notebook のディレクトリに `listing.json` として残すためのもので、そのままスクリプトに渡す。
 
-取得するものが無いか、`--listing` 以外にどの形式にも当てはまらないものがあれば、取得せずにその旨を返す。
+`--outputs` は、notebook の最新の実行の出力ファイル (`submission.csv` など) も取得する。合計 100MB を超えるぶんは取得せず、ファイル名とサイズだけを返す。
+`--outputs-all` は、サイズに関係なくすべて取得する。どちらも引数にあるときだけ、そのままスクリプトに渡す。
+
+取得するものが無いか、オプション以外にどの形式にも当てはまらないものがあれば、取得せずにその旨を返す。
 
 ## Instructions
 
@@ -45,6 +48,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
   - `comments.md`: コメントページの内容
   - `source.md`: 出力を除き、長い行とセルを切り詰めたコード。分析ではこれを読む
   - `listing.json`: `--listing` があるときだけ。一覧で読んだスコア、votes、コメント数、実行日時と、取得日時
+  - `outputs/`: `--outputs` か `--outputs-all` があるときだけ。最新の実行の出力ファイルと実行ログ (`<slug>.log`)。前回の出力と入れ替える。`outputs/.gitignore` で、ディレクトリごと git の管理外になる
   - 同じ kernel id (`kernel-metadata.json` の `id_no`) のディレクトリがあれば、slug が変わっていてもそこに保存する
 
 出力は 1 件ごとに 1 行の JSON である。
@@ -56,6 +60,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
 ```
 
 - `commentsTruncated`: コメントが 300 件を超えたため読み込みを打ち切った。`comments` は読み込めた件数
+- `outputs`: `--outputs` か `--outputs-all` を付けたときの、出力の取得結果。`downloaded` は取得したファイル、`skipped` は取得しなかったファイルとそのサイズ (`bytes`) と理由 (`too_large` は上限を超えた)。1 件も取得しなかったときは `dir` が `null` で、前回の出力が残っている
 - `error`: その 1 件は取得できていない。他の件は取得できている
 
 取得したファイルは書き換えない。失敗した件を、別の方法 (snapshot や innerText) で取得して補ったり、代わりの内容をファイルに書いたりしない。
@@ -66,6 +71,7 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
 
 - 取得できた件ごとに、`dir` と、コメントの件数
 - `movedLegacy`、`slugChanged`、`commentsTruncated` があった件
+- `outputs` があれば、件ごとに取得したファイルの数と合計サイズ、取得しなかったファイルの名前とサイズ
 - 失敗した件と `error` の内容。原因の見当がつけば添える (Troubleshooting を参照)
 - リポジトリの `.gitignore` に `.playwright-cli/` が無いとき (`.gitignore` が無いときも含む) は、追加の依頼。playwright-cli が作業ディレクトリに作るログで、成果物ではない。`.gitignore` は自分では作らず、書き換えない
 
@@ -79,6 +85,16 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py <引数をす�
 手順:
 1. 2 件を 1 回のコマンドで fetch.py に渡す
 2. 保存先とコメントの件数を返す
+```
+
+### notebook を出力も含めて取得する
+
+```
+ユーザ: sacuscreed/public-merge を出力も含めて取得して
+
+手順:
+1. --outputs を付けて fetch.py に渡す
+2. 保存先と、取得した出力のファイルとサイズを返す
 ```
 
 ## Troubleshooting

@@ -6,7 +6,7 @@
 """Fetch Kaggle discussions and notebooks into kaggle/ of the current repository.
 
 Usage:
-    uv run fetch.py [--jobs N] [--listing FILE] <target> [<target> ...]
+    uv run fetch.py [--jobs N] [--listing FILE] [--outputs | --outputs-all] <target> [<target> ...]
 
 A target is one of:
     https://www.kaggle.com/competitions/<slug>/discussion/<id>
@@ -22,6 +22,9 @@ Notebook   -> kaggle/notebooks/<user>__<slug>/
     (slugChanged: true in the output).
     With --listing (the listingFile of kaggle-updates' list.py), the notebook's score, votes,
     comments and runAt in the listing are saved to listing.json with fetchedAt.
+    With --outputs, the output files of the notebook's latest run are also downloaded into
+    outputs/ by outputs.py, up to 100MB in total (--outputs-all: no limit, only when the user
+    asked for it). The result goes into "outputs" of the notebook's line.
 
 Prints one JSON object per target on stdout, in input order.
 """
@@ -39,6 +42,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 EXTRACT_JS = SCRIPT_DIR / "extract-discussion.mjs"
+OUTPUTS_PY = SCRIPT_DIR / "outputs.py"
 RUN_CODE_TIMEOUT = 300
 MAX_LINE_CHARS = 400
 MAX_CELL_CHARS = 6000
@@ -108,6 +112,10 @@ def comments_summary(markdown: str) -> dict:
     }
 
 
+def now_local() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
 def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> dict:
     markdown = browser.extract(url)
     base = root / "kaggle" / "discussions"
@@ -127,6 +135,10 @@ def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> di
         title = re.match(r"^# (.+)$", markdown, re.M)
         target = base / f"{disc_id}_{safe_title(title.group(1) if title else disc_id)}"
         target.mkdir()
+    # 分析で、いつの時点の内容かを書けるように、取得日時を URL の行の後に入れる
+    markdown = re.sub(
+        r"^(URL: .*)$", rf"\1\n取得: {now_local()}", markdown, count=1, flags=re.M
+    )
     (target / "discussion.md").write_text(markdown)
     return {
         "type": "discussion",
@@ -210,7 +222,7 @@ def fetch_notebook(
         shutil.move(str(meta_path), old_meta)
 
     (target / "source.md").write_text(
-        f"# {meta['title']}\n\nURL: https://www.kaggle.com/code/{ref}\n\n"
+        f"# {meta['title']}\n\nURL: https://www.kaggle.com/code/{ref}\n取得: {now_local()}\n\n"
         + condense(target / meta["code_file"])
     )
     comments = browser.extract(f"https://www.kaggle.com/code/{ref}/comments")
@@ -219,7 +231,7 @@ def fetch_notebook(
         # 次の一覧で、スコアが前回の取得から変わったかを見るために残す
         (target / "listing.json").write_text(
             json.dumps(
-                {**listing, "fetchedAt": datetime.now().astimezone().isoformat()},
+                {**listing, "fetchedAt": now_local()},
                 ensure_ascii=False,
             )
         )
@@ -243,10 +255,28 @@ def parse_target(target: str):
     return None
 
 
+def attach_outputs(done: dict, all_sizes: bool) -> None:
+    """Download the outputs of the fetched notebooks with outputs.py, into each result's "outputs"."""
+    notebooks = [r for r in done.values() if r.get("type") == "notebook"]
+    if not notebooks:
+        return
+    cmd = ["uv", "run", "--quiet", str(OUTPUTS_PY)] + (["--all"] if all_sizes else [])
+    proc = subprocess.run(
+        cmd + [r["ref"] for r in notebooks], capture_output=True, text=True
+    )
+    lines = [json.loads(l) for l in proc.stdout.splitlines() if l.startswith("{")]
+    for r, out in zip(notebooks, lines):
+        r["outputs"] = out
+    for r in notebooks[len(lines) :]:
+        r["outputs"] = {"error": f"outputs.py failed: {proc.stderr.strip()[-500:]}"}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--listing", type=Path)
+    ap.add_argument("--outputs", action="store_true")
+    ap.add_argument("--outputs-all", action="store_true")
     ap.add_argument("targets", nargs="+")
     args = ap.parse_args()
     root = repo_root()
@@ -285,6 +315,8 @@ def main() -> None:
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
         done = dict(r for rs in pool.map(work, range(jobs)) for r in rs)
+    if args.outputs or args.outputs_all:
+        attach_outputs(done, args.outputs_all)
     for target, _ in parsed:
         print(json.dumps(done[target], ensure_ascii=False))
     sys.exit(1 if any("error" in r for r in done.values()) else 0)
