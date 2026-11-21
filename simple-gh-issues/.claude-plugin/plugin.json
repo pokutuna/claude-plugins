@@ -1,0 +1,15 @@
+{
+  "name": "simple-gh-issues",
+  "version": "0.1.0",
+  "description": "Track GitHub Issues with Issue:owner/repo#N references left in code and docs — create, list, work on, and close.",
+  "author": {
+    "name": "pokutuna"
+  },
+  "keywords": [
+    "github",
+    "issues",
+    "gh",
+    "task-tracking"
+  ],
+  "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/simple-gh-issues"
+}

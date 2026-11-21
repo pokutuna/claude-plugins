@@ -181,6 +181,12 @@
       "description": "Reusable prompts invoked as skills, including excerpts from Anthropic's model-specific prompting guides",
       "source": "./prompts",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/prompts"
+    },
+    {
+      "name": "simple-gh-issues",
+      "description": "Track GitHub Issues with Issue:owner/repo#N references left in code and docs — create, list, work on, and close",
+      "source": "./simple-gh-issues",
+      "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/simple-gh-issues"
     }
   ]
 }
