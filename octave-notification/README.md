@@ -1,17 +1,19 @@
 # octave-notification
 
-Play musical scale notification sounds based on tmux window index. Each window gets a unique pitch, so you can tell which session completed by ear.
+Play musical scale notification sounds based on the herdr tab position or tmux window index. Each tab or window gets a unique pitch, so you can tell which session completed by ear.
 
 ## How it works
 
-A `Notification` hook plays a bell-like WAV file when Claude Code sends a notification (e.g., task completion after being idle for 6+ seconds). The pitch corresponds to the current tmux window index.
+A `Notification` hook plays a bell-like WAV file when Claude Code sends a notification (e.g., task completion after being idle for 6+ seconds). The pitch corresponds to the position of the pane's herdr tab, or to the tmux window index. In herdr, tabs are counted across all workspaces in sidebar order, so two tabs in the same workspace get different pitches, like tmux windows do. When herdr runs inside tmux, the herdr tab position is used.
 
 - Supports macOS (`afplay`) and Linux (`paplay`, `pw-play`, `aplay`)
-- Falls back to the lowest note (C4) if not in tmux or window index exceeds range
+- Under herdr, the tab position needs `jq`. If it cannot be read, the tmux window index is used when herdr runs inside tmux
+- Falls back to the lowest note (B3) if neither index can be read
+- Uses the highest note (B6) if the index exceeds the range
 
 ## Sound map
 
-22 notes: B3 + 3 octaves (C4 - B6), mapped to tmux window index 0-21. Index 1 = C4 (Do), so `base-index 1` users get Do-Re-Mi starting from the first window.
+22 notes: B3 + 3 octaves (C4 - B6), mapped to index 0-21. Index 1 = C4 (Do), so herdr tabs (counted from 1) and tmux with `base-index 1` get Do-Re-Mi starting from the first one.
 
 | Index | Note | Frequency (Hz) |
 |------:|:-----|----------------:|
@@ -38,7 +40,7 @@ A `Notification` hook plays a bell-like WAV file when Claude Code sends a notifi
 |    20 | A6   |         1760.00 |
 |    21 | B6   |         1975.53 |
 
-Window index > 21 uses B6 (the highest note).
+Index > 21 uses B6 (the highest note).
 
 ## Files
 

@@ -1,7 +1,7 @@
 {
   "name": "octave-notification",
-  "description": "Play musical scale notification sounds based on tmux window index. Each window gets a unique pitch across 3 octaves.",
-  "version": "0.2.1",
+  "description": "Play musical scale notification sounds based on herdr tab position or tmux window index. Each tab or window gets a unique pitch across 3 octaves.",
+  "version": "0.3.0",
   "author": {
     "name": "pokutuna"
   },
@@ -11,6 +11,7 @@
     "notification",
     "sound",
     "tmux",
+    "herdr",
     "hooks"
   ]
 }

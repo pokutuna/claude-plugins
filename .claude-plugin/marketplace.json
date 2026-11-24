@@ -88,7 +88,7 @@
     },
     {
       "name": "octave-notification",
-      "description": "Play musical scale notification sounds based on tmux window index",
+      "description": "Play musical scale notification sounds based on herdr tab position or tmux window index",
       "source": "./octave-notification",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/octave-notification"
     },
