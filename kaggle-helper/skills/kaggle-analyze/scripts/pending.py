@@ -13,8 +13,9 @@ Without targets, every fetched directory under kaggle/ is checked and only those
 not `done` are printed.
 
 insights.md is up to date when its `取得:` line has the same time (YYYY-MM-DD HH:MM, local)
-as the `取得:` line of the fetched file (discussion.md, or source.md for a notebook), or when
-it has no `取得:` line (the older format, written from the fetched content).
+as the `取得:` line of the fetched file (discussion.md, or source.md for a notebook).
+insights.md without a `取得:` line is the older format, written from the previous fetch:
+it is up to date unless a refetch has left changes.diff.
 Each target gets a mode:
     done        insights.md is up to date
     new         no insights.md yet: analyze the whole
@@ -90,6 +91,15 @@ def resolve(root: Path, target: str) -> Path | None:
     return None
 
 
+def set_fetched_line(text: str, line: str) -> str:
+    """Replace the `取得:` line, or add it after `URL:` (and `種類:`) for the older format."""
+    if INSIGHTS_FETCHED_RE.search(text):
+        return INSIGHTS_FETCHED_RE.sub(line, text, count=1)
+    return re.sub(
+        r"\A(URL:.*\n(?:種類:.*\n)?)", lambda m: m.group(1) + line + "\n", text, count=1
+    )
+
+
 def bring_up_to_date(d: Path, kind: str, fetched: str, insights: Path) -> None:
     """Rewrite the header lines of insights.md for a fetch whose content did not change."""
     text = insights.read_text()
@@ -98,14 +108,14 @@ def bring_up_to_date(d: Path, kind: str, fetched: str, insights: Path) -> None:
             r"^## Comments \((\d+)\)", (d / "discussion.md").read_text(), re.M
         )
         line = f"取得: {fetched}" + (f" / コメント {m.group(1)} 件" if m else "")
-        text = INSIGHTS_FETCHED_RE.sub(line, text, count=1)
+        text = set_fetched_line(text, line)
     else:
         listing = {}
         if (d / "listing.json").exists():
             listing = json.loads((d / "listing.json").read_text())
         run_at = local_minute(listing.get("runAt"))
         line = f"取得: {fetched}" + (f" (実行 {run_at})" if run_at else "")
-        text = INSIGHTS_FETCHED_RE.sub(line, text, count=1)
+        text = set_fetched_line(text, line)
         if listing.get("score") is not None:
             score = f"公開スコア: {listing['score']}"
             if re.search(r"^公開スコア:", text, re.M):
@@ -152,8 +162,11 @@ def check(root: Path, target: str, d: Path | None) -> dict:
     fetched = local_minute(m.group(1)) if m else None
     analyzed = INSIGHTS_FETCHED_RE.search(text)
     changes = d / "changes.diff"
-    if analyzed is None or (fetched and analyzed.group(1) == fetched):
-        # `取得:` 行の無い insights.md は、その行を書く前の形式で、取得した内容を分析したもの
+    if analyzed is not None and fetched and analyzed.group(1) == fetched:
+        result["mode"] = "done"
+    elif analyzed is None and (not changes.exists() or not fetched):
+        # `取得:` 行の無い insights.md は、その行を書く前の形式で、取得した内容を分析したもの。
+        # 取り直すと changes.diff ができる
         result["mode"] = "done"
     elif not changes.exists() or not fetched:
         result["mode"] = "full"

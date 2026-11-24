@@ -166,7 +166,12 @@ def record_changes(target: Path, primary: str, new: dict[str, str]) -> int | Non
         return None
     old_fetched = fetched_minute(old_primary.read_text(errors="replace"))
     m = INSIGHTS_FETCHED_RE.search(insights.read_text(errors="replace"))
-    analyzed = old_fetched is not None and m is not None and m.group(1) == old_fetched
+    if m is None:
+        # `取得:` 行の無い insights.md は、その行を書く前の形式で、前回の取得を分析したもの。
+        # changes.diff があれば、それはまだ分析されていない
+        analyzed = old_fetched is not None and not changes.exists()
+    else:
+        analyzed = old_fetched is not None and m.group(1) == old_fetched
     if not analyzed and not changes.exists():
         # どの取得をもとに分析したかが分からない。分析では全体を読む
         return None
