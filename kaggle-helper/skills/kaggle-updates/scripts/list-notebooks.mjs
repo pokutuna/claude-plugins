@@ -1,6 +1,6 @@
 // List public notebooks of a Kaggle competition, most recently run first, as JSON
 // Usage:
-//   playwright-cli goto "https://www.kaggle.com/competitions/<slug>/code#since=YYYY-MM-DD"
+//   playwright-cli goto "https://www.kaggle.com/competitions/<slug>/code#since=<ISO 8601 の日時か YYYY-MM-DD>"
 //   playwright-cli run-code --filename=list-notebooks.mjs
 //
 // 開いているページの URL からコンペの slug と since を読み、Code タブを Recently Run の順に
@@ -20,8 +20,12 @@ async (page) => {
   const slug = current.pathname.match(/^\/competitions\/([^/]+)/)?.[1]
   if (!slug) return JSON.stringify({ error: "not_competition_page", url: page.url() })
 
-  const sinceArg = current.hash.match(/since=(\d{4}-\d{2}-\d{2})/)?.[1]
-  const since = sinceArg ? new Date(`${sinceArg}T00:00:00`) : new Date(Date.now() - 7 * 86400 * 1000)
+  // since は list.py が時差付きの ISO 8601 で渡す。日付だけならローカル時刻の 0 時とする
+  const sinceArg = decodeURIComponent(current.hash.match(/since=([^&]+)/)?.[1] ?? "")
+  const since = !sinceArg
+    ? new Date(Date.now() - 7 * 86400 * 1000)
+    : new Date(/^\d{4}-\d{2}-\d{2}$/.test(sinceArg) ? `${sinceArg}T00:00:00` : sinceArg)
+  if (isNaN(since)) return JSON.stringify({ error: "invalid_since", since: sinceArg })
   const base = `https://www.kaggle.com/competitions/${slug}/code`
 
   // ページが API に送ったリクエストを横取りして Playwright から送り、応答の本文を受け取る。
@@ -54,6 +58,10 @@ async (page) => {
     return kernels.map(k => {
       const ref = `${k.author.userName}/${k.currentUrlSlug}`
       return {
+        // kernel id (kernel-metadata.json の id_no)。slug が変わっても変わらない
+        id: k.id,
+        // 版の ID。版を保存するたびに変わる。同じコードで実行し直しただけでも変わる
+        version: k.scriptVersionId ?? null,
         ref,
         title: k.title.trim(),
         url: `https://www.kaggle.com/code/${ref}`,
@@ -74,7 +82,7 @@ async (page) => {
         truncated = false
         break
       }
-      for (const n of items) if (!notebooks.has(n.ref)) notebooks.set(n.ref, n)
+      for (const n of items) if (!notebooks.has(n.id)) notebooks.set(n.id, n)
       if (items.every(n => n.runAt && new Date(n.runAt) < since)) {
         truncated = false
         break

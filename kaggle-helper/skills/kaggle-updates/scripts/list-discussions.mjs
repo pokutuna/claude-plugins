@@ -1,6 +1,6 @@
 // List Kaggle discussion topics of a competition, most recently active first, as JSON
 // Usage:
-//   playwright-cli goto "https://www.kaggle.com/competitions/<slug>/discussion#since=YYYY-MM-DD"
+//   playwright-cli goto "https://www.kaggle.com/competitions/<slug>/discussion#since=<ISO 8601 の日時か YYYY-MM-DD>"
 //   playwright-cli run-code --filename=list-discussions.mjs
 //
 // 開いているページの URL からコンペの slug と since を読み、最終活動 (投稿または最後のコメント) が
@@ -17,8 +17,12 @@ async (page) => {
   const slug = current.pathname.match(/^\/competitions\/([^/]+)/)?.[1]
   if (!slug) return JSON.stringify({ error: "not_competition_page", url: page.url() })
 
-  const sinceArg = current.hash.match(/since=(\d{4}-\d{2}-\d{2})/)?.[1]
-  const since = sinceArg ? new Date(`${sinceArg}T00:00:00`) : new Date(Date.now() - 7 * 86400 * 1000)
+  // since は list.py が時差付きの ISO 8601 で渡す。日付だけならローカル時刻の 0 時とする
+  const sinceArg = decodeURIComponent(current.hash.match(/since=([^&]+)/)?.[1] ?? "")
+  const since = !sinceArg
+    ? new Date(Date.now() - 7 * 86400 * 1000)
+    : new Date(/^\d{4}-\d{2}-\d{2}$/.test(sinceArg) ? `${sinceArg}T00:00:00` : sinceArg)
+  if (isNaN(since)) return JSON.stringify({ error: "invalid_since", since: sinceArg })
   const base = `https://www.kaggle.com/competitions/${slug}/discussion`
 
   // ページが API に送ったリクエストを横取りして Playwright から送り、応答の本文を受け取る。

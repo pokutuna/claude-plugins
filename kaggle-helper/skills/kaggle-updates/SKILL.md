@@ -2,7 +2,7 @@
 name: kaggle-updates
 description: 開催中の Kaggle コンペで最近更新された discussion と公開 notebook を一覧し、未取得のものと更新のあったものを votes と公開スコアの順位で選んで、取得と分析を行う。"discussion の更新を確認", "最近の notebook を取り込む", "コンペの更新を取り込む", "kaggle-updates" などで起動。
 compatibility: uv、kaggle CLI (認証済み)、playwright-cli が必要
-argument-hint: "[competition-slug] [YYYY-MM-DD] [discussion|notebook] [取得だけ|分析だけ] [出力も] [--extension] [選び方の指定]"
+argument-hint: "[competition-slug] [YYYY-MM-DD[THH:MM]] [discussion|notebook] [取得だけ|分析だけ] [出力も] [--extension] [選び方の指定]"
 allowed-tools:
   - "Bash(uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py *)"
   - "Bash(playwright-cli *)"
@@ -14,19 +14,20 @@ user-invocable: true
 
 # kaggle-updates Skill
 
-コンペの discussion と公開 notebook のうち、指定日以降に活動のあったものを一覧する。
+コンペの discussion と公開 notebook のうち、指定した日時以降に活動のあったものを一覧する。
 `kaggle/` の取り込み済みのものと比べ、未取得のものと更新のあったものから選んで、`kaggle-fetch` skill で取得し、`kaggle-analyze` skill で分析する。
+この skill が行うのは一覧と選択だけで、取得と分析は、それぞれの skill を 1 件ずつ実行したときと同じになる。
 
 終了済みのコンペで過去の discussion を検索するときは、`meta-kaggle` skill を使う。
 
 引数: $ARGUMENTS
 
 - コンペの slug: 引数に無ければ、リポジトリの CLAUDE.md、README、`kaggle/discussions/` の既存ファイルの `URL:` 行の順に `kaggle.com/competitions/<slug>` の形の URL を探し、最初に見つかったものを使う。見つからなければユーザーに尋ねる
-- 日付 (`YYYY-MM-DD`): この日以降に活動のあったものを対象にする。引数に無ければ 7 日前とする。年の無い日付は、今日以前で最も近い日付と解釈する。日付はローカル時刻の 0 時と解釈される
+- 日時 (`YYYY-MM-DD` か `YYYY-MM-DDTHH:MM`): この日時以降に活動のあったものを対象にする。引数に無ければ 7 日前とする。ローカル時刻と解釈され、日付だけなら 0 時になる。年の無い日付は、今日以前で最も近い日付と解釈する
 - 種類: `discussion` か `notebook` の一方だけを対象にする。無ければ両方
 - `取得だけ`: 取得して止める。分析しない
 - `出力も`: notebook の最新の実行の出力ファイルと実行ログも取得する
-- `分析だけ`: 一覧を取らず、取得済みで `insights.md` が無いものを分析する。`kaggle-analyze` skill を引数なしで実行して終わる
+- `分析だけ`: 一覧を取らず、取得済みで分析が済んでいないものを分析する。`kaggle-analyze` skill を引数なしで実行して終わる
 - `--extension`: 一覧と取得のページを、ユーザーの Chrome で読む。ログインが要るページを取るときに使う
 - 選び方の指定 (「votes 10 以上」「スコア上位 5 件」「GPU を使うもの」など): Step 2 の推奨の代わりに、その指定だけで選ぶ
 
@@ -45,7 +46,7 @@ playwright-cli attach --extension --session=kaggle-list
 開いたセッションの名前を渡して、スクリプトを実行する。
 
 ```bash
-uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py --session kaggle-list [--kind discussion|notebook] --since <YYYY-MM-DD> <slug>
+uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-updates/scripts/list.py --session kaggle-list [--kind discussion|notebook] [--since <YYYY-MM-DD[THH:MM]>] <slug>
 ```
 
 スクリプトは discussion の一覧と Code タブを読み、`kaggle/` のファイルと比べて、取り込むものの推奨を付ける。1 分ほどかかる。
@@ -58,7 +59,7 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
 ```json
 {
   "slug": "<slug>",
-  "since": "2026-11-13",
+  "since": "2026-11-13T00:00+09:00",
   "discussions": {
     "truncated": false,
     "hotVotes": 4,
@@ -73,7 +74,7 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
     "hotVotes": 8,
     "scoreOrder": "ascending",
     "items": [
-      {"ref": "user/slug", "title": "...", "url": "https://www.kaggle.com/code/user/slug",
+      {"id": 145952068, "version": 373338303, "ref": "user/slug", "title": "...", "url": "https://www.kaggle.com/code/user/slug",
        "votes": 27, "comments": 0, "score": 136185, "runAt": "2026-11-20T09:46:00+09:00",
        "state": "new", "localDir": null, "prevScore": null, "recommended": true, "reason": "スコア上位"}
     ]
@@ -82,7 +83,10 @@ playwright-cli は作業ディレクトリに `.playwright-cli/` (ログ) を作
 }
 ```
 
-- `state`: `new` (未取得)、`updated` (取得した後に活動や実行がある)、`fetched` (取り込み済み)。ファイルの更新時刻だけで決まる
+- `state`: `new` (未取得)、`updated` (更新あり)、`fetched` (取り込み済み)。前回取得したときの記録と比べて決まる
+  - discussion: コメントが `discussion.md` の `## Comments (N)` より増えていれば `updated`
+  - notebook: 版 (`version`) が前回取得したときの `listing.json` と違えば `updated`。`version` を持たない古い `listing.json` では、実行日時で比べる。`source.md` が無い古い形式で取得したものは、いつの版か分からないので `updated`
+  - votes だけの変化では `updated` にならない。notebook は kernel id (`id`) で照合するので、slug が変わっても同じ notebook として扱う
 - `recommended` と `reason`: 次の基準による推奨。候補は `new` と `updated`
   1. 候補が 10 件以下なら、すべて
   2. 11 件以上なら上位 10 件。discussion は votes 順。notebook はスコア上位と votes 上位を交互に取る。スコアが前回の取得から変わっていない `updated` の notebook は、残りの枠に回す
@@ -120,14 +124,15 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 
 ### Step 3: 取り込む
 
-1. `kaggle-fetch` skill を 1 回だけ実行し、取り込む discussion と notebook の `url` をすべて引数に渡す。notebook を含むときは、先頭に `--listing <listingFile>` を付ける。`出力も` の指定があれば `--outputs` を、`--extension` があれば `--extension` を付ける。取得は Sonnet の subagent が行うので、結果が返るまで待つ
-2. 取得できたものの `dir` をすべて引数にして、`kaggle-analyze` skill を実行する。取得に失敗したものは分析しない
+1. `kaggle-fetch` skill を 1 回だけ実行し、取り込む discussion と notebook の `url` をすべて引数に渡す。notebook を含むときは、先頭に `--listing <listingFile>` を付ける。`出力も` の指定があれば `--outputs` を、`--extension` があれば `--extension` を付ける。取得は Sonnet の subagent が行うので、結果が返るまで待つ。ScheduleWakeup などで待ち合わせを仕掛けない
+2. 取得できたものの `dir` をすべて引数にして、`kaggle-analyze` skill を実行する。取得に失敗したものは分析しない。取り直したもののうち、内容が変わっていないものや、分析に影響しない変化だけのものは、`kaggle-analyze` が `insights.md` の `取得:` の行だけを書き換えて済ませる
 
 `取得だけ` の指定があれば、1 で止める。
 
 最後に、次を 1 度だけ報告する。報告する内容はこれですべてである。
 
-- 取り込んだものごとに、`insights.md` のパスと要点 1 行。更新ありのものでは、今回追記した内容の要点を書く
+- 分析したものごとに、`insights.md` のパスと要点 1 行。更新ありのものでは、今回の変化の要点を書く
+- 内容が変わっていなかったものと、分析に影響しない変化だけだったものの件数
 - コメントの読み込みを打ち切ったもの (`commentsTruncated`) と、読めた件数と一覧の `comments` の値
 - 取得や分析に失敗したものと、その理由
 - `truncated` が `true` だった種類があれば、そのこと
@@ -141,7 +146,7 @@ notebook (2026-11-13 以降、81 件。スコアは小さいほど良い)
 ユーザ: コンペの更新を取り込んで
 
 手順:
-1. slug をリポジトリから読み取り、7 日前の日付で list.py を実行する
+1. slug をリポジトリから読み取り、--since を付けずに list.py を実行する (7 日前から)
 2. 推奨されたものと主催者の告知を選び、discussion と notebook の表を示す
 3. kaggle-fetch で 1 回にまとめて取得し、kaggle-analyze で分析して、要点を報告する
 ```

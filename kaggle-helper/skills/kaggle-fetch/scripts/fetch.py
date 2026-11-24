@@ -19,20 +19,27 @@ A target is one of:
     <user>/<slug>
 
 Discussion -> kaggle/discussions/<id>_<title>/discussion.md
-    A legacy kaggle/discussions/<id>_<title>.md (analysis only) is moved to <id>_<title>/insights.md.
-Notebook   -> kaggle/notebooks/<user>__<slug>/
+Notebook   -> kaggle/notebooks/<kernel id>_<slug>/
     <code file> and kernel-metadata.json (kaggle kernels pull -m), comments.md, source.md
     (the code without outputs, long lines and cells cut short, for reading).
-    An existing directory with the same kernel id (id_no) is reused even if the slug changed
+    The directory is found by the kernel id (id_no), so it is reused even if the slug changed
     (slugChanged: true in the output).
-    With --listing (the listingFile of kaggle-updates' list.py), the notebook's score, votes,
-    comments and runAt in the listing are saved to listing.json with fetchedAt. Without it,
-    an existing listing.json is removed.
+    With --listing (the listingFile of kaggle-updates' list.py), the notebook's version, score,
+    votes, comments and runAt in the listing are saved to listing.json with fetchedAt.
+    Without it, an existing listing.json is removed.
+
+When the directory has insights.md, the changes since the fetch it was written from are
+written to changes.diff, ignoring the `取得:` lines (`changes` in the output is its line count):
+    the previous fetch was analyzed (its `取得:` equals the one in insights.md): a new diff
+    otherwise, changes.diff of the earlier fetches exists: the diff is appended to it
+    otherwise (the base is unknown): no changes.diff, and `changes` is null
+Without insights.md, changes.diff is removed and `changes` is null.
 
 Prints one JSON object per target on stdout, in input order.
 """
 
 import argparse
+import difflib
 import json
 import re
 import shutil
@@ -58,6 +65,10 @@ NOTEBOOK_URL_RE = re.compile(
     r"^https?://(?:www\.)?kaggle\.com/code/([^/?#]+)/([^/?#]+)"
 )
 NOTEBOOK_REF_RE = re.compile(r"^([A-Za-z0-9_-]+)/([A-Za-z0-9_.-]+)$")
+FETCHED_RE = re.compile(r"^取得: (\S+)\n", re.M)
+# insights.md の `取得:` 行は、分析した取得の日時を YYYY-MM-DD HH:MM のローカル時刻で書く
+INSIGHTS_FETCHED_RE = re.compile(r"^取得: (\d{4}-\d{2}-\d{2} \d{2}:\d{2})", re.M)
+CHANGES = "changes.diff"
 
 
 def repo_root() -> Path:
@@ -128,21 +139,67 @@ def now_local() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+def fetched_minute(text: str) -> str | None:
+    """The `取得:` of a fetched file as YYYY-MM-DD HH:MM in local time, as insights.md has it."""
+    m = FETCHED_RE.search(text)
+    if not m:
+        return None
+    try:
+        return (
+            datetime.fromisoformat(m.group(1)).astimezone().strftime("%Y-%m-%d %H:%M")
+        )
+    except ValueError:
+        return None
+
+
+def record_changes(target: Path, primary: str, new: dict[str, str]) -> int | None:
+    """Write the changes since the analyzed fetch to changes.diff, before the new files are saved.
+
+    primary is the fetched file whose `取得:` line tells when the previous fetch was;
+    new maps each fetched file name to its new content.
+    """
+    changes = target / CHANGES
+    insights = target / "insights.md"
+    old_primary = target / primary
+    if not insights.exists() or not old_primary.exists():
+        changes.unlink(missing_ok=True)
+        return None
+    old_fetched = fetched_minute(old_primary.read_text(errors="replace"))
+    m = INSIGHTS_FETCHED_RE.search(insights.read_text(errors="replace"))
+    analyzed = old_fetched is not None and m is not None and m.group(1) == old_fetched
+    if not analyzed and not changes.exists():
+        # どの取得をもとに分析したかが分からない。分析では全体を読む
+        return None
+
+    new_fetched = fetched_minute(new[primary])
+    lines: list[str] = []
+    for name, text in new.items():
+        old_path = target / name
+        old = old_path.read_text(errors="replace") if old_path.exists() else ""
+        lines += difflib.unified_diff(
+            FETCHED_RE.sub("", old, count=1).splitlines(),
+            FETCHED_RE.sub("", text, count=1).splitlines(),
+            f"{name} (取得 {old_fetched})",
+            f"{name} (取得 {new_fetched})",
+            lineterm="",
+        )
+    body = "".join(f"{line}\n" for line in lines)
+    if analyzed:
+        changes.write_text(body)
+    else:
+        # 分析していない取得の差分に続ける。前回の分析からの差分になる
+        with changes.open("a") as f:
+            f.write(body)
+    return len(changes.read_text().splitlines())
+
+
 def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> dict:
     markdown = browser.extract(url)
     base = root / "kaggle" / "discussions"
     base.mkdir(parents=True, exist_ok=True)
     dirs = [p for p in base.glob(f"{disc_id}_*") if p.is_dir()]
-    legacy = [p for p in base.glob(f"{disc_id}_*.md") if p.is_file()]
-    moved = None
     if dirs:
         target = dirs[0]
-    elif legacy:
-        # 旧形式の分析だけのファイル (<id>_<タイトル>.md) は、ディレクトリの insights.md にする
-        target = base / legacy[0].stem
-        target.mkdir()
-        legacy[0].rename(target / "insights.md")
-        moved = str((target / "insights.md").relative_to(root))
     else:
         title = re.match(r"^# (.+)$", markdown, re.M)
         target = base / f"{disc_id}_{safe_title(title.group(1) if title else disc_id)}"
@@ -151,12 +208,13 @@ def fetch_discussion(root: Path, url: str, disc_id: str, browser: Browser) -> di
     markdown = re.sub(
         r"^(URL: .*)$", rf"\1\n取得: {now_local()}", markdown, count=1, flags=re.M
     )
+    changes = record_changes(target, "discussion.md", {"discussion.md": markdown})
     (target / "discussion.md").write_text(markdown)
     return {
         "type": "discussion",
         "id": int(disc_id),
         "dir": str(target.relative_to(root)),
-        "movedLegacy": moved,
+        "changes": changes,
         **comments_summary(markdown),
     }
 
@@ -188,16 +246,6 @@ def condense(code_path: Path) -> str:
     return "\n\n".join(parts) + "\n"
 
 
-def find_notebook_dir(base: Path, id_no: int, user: str, slug: str) -> Path:
-    for meta in base.glob("*/kernel-metadata.json"):
-        try:
-            if json.loads(meta.read_text()).get("id_no") == id_no:
-                return meta.parent
-        except (json.JSONDecodeError, OSError):
-            continue
-    return base / f"{user}__{slug}"
-
-
 def fetch_notebook(
     root: Path, user: str, slug: str, browser: Browser, listing: dict | None = None
 ) -> dict:
@@ -217,11 +265,28 @@ def fetch_notebook(
         code_file = Path(tmp) / meta["code_file"]
         # コメントを取れなかったときに、コードだけ新しくして取得済みに見せないよう、ファイルを置く前に取る
         comments = browser.extract(f"https://www.kaggle.com/code/{ref}/comments")
+        source = (
+            f"# {meta['title']}\n\nURL: https://www.kaggle.com/code/{ref}\n取得: {now_local()}\n\n"
+            + condense(code_file)
+        )
 
         base = root / "kaggle" / "notebooks"
         base.mkdir(parents=True, exist_ok=True)
-        target = find_notebook_dir(base, meta["id_no"], user, slug)
+        # slug が変わっても同じディレクトリを使う。名前の slug は最初に取得したときのまま
+        target = next(
+            (p for p in base.glob(f"{meta['id_no']}_*") if p.is_dir()),
+            base / f"{meta['id_no']}_{slug}",
+        )
         target.mkdir(exist_ok=True)
+        changes = record_changes(
+            target,
+            "source.md",
+            {
+                "source.md": source,
+                "comments.md": comments,
+                "kernel-metadata.json": meta_path.read_text(),
+            },
+        )
         old_meta = target / "kernel-metadata.json"
         if old_meta.exists():
             old_code = json.loads(old_meta.read_text()).get("code_file")
@@ -235,10 +300,7 @@ def fetch_notebook(
         shutil.move(str(code_file), target / meta["code_file"])
         shutil.move(str(meta_path), old_meta)
 
-    (target / "source.md").write_text(
-        f"# {meta['title']}\n\nURL: https://www.kaggle.com/code/{ref}\n取得: {now_local()}\n\n"
-        + condense(target / meta["code_file"])
-    )
+    (target / "source.md").write_text(source)
     (target / "comments.md").write_text(comments)
     listing_path = target / "listing.json"
     if listing:
@@ -258,7 +320,8 @@ def fetch_notebook(
         "id_no": meta["id_no"],
         "dir": str(target.relative_to(root)),
         "absDir": str(target),
-        "slugChanged": target.name != f"{user}__{slug}",
+        "slugChanged": target.name != f"{meta['id_no']}_{slug}",
+        "changes": changes,
         **comments_summary(comments),
     }
 

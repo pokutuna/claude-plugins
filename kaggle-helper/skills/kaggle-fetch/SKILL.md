@@ -65,23 +65,24 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-fetch/scripts/fetch.py --session kagg
 スクリプトは、セッションごとに 1 件ずつ並列に取得する。保存先はリポジトリのルート (git の作業ツリーのルート) の `kaggle/` 以下である。
 
 - discussion: `kaggle/discussions/<id>_<タイトル>/discussion.md`
-  - 旧形式の `kaggle/discussions/<id>_<タイトル>.md` (分析だけのファイル) があれば、そのディレクトリの `insights.md` に移す
-- notebook: `kaggle/notebooks/<user>__<slug>/`
+- notebook: `kaggle/notebooks/<kernel id>_<slug>/`
   - `kaggle kernels pull -m` で取得したコードのファイルと `kernel-metadata.json`
   - `comments.md`: コメントページの内容
   - `source.md`: 出力を除き、長い行とセルを切り詰めたコード。分析ではこれを読む
-  - `listing.json`: `--listing` があるときだけ。一覧で読んだスコア、votes、コメント数、実行日時と、取得日時。`--listing` が無いときは、前回の `listing.json` を消す
-  - 同じ kernel id (`kernel-metadata.json` の `id_no`) のディレクトリがあれば、slug が変わっていてもそこに保存する
+  - `listing.json`: `--listing` があるときだけ。一覧で読んだ版、スコア、votes、コメント数、実行日時と、取得日時。`--listing` が無いときは、前回の `listing.json` を消す
+  - ディレクトリは kernel id で探すので、slug が変わっても同じディレクトリに保存する。名前の slug は最初に取得したときのまま
+- 取り直したもので `insights.md` があれば、前回分析した取得からの差分を `changes.diff` に書く。`取得:` の行の違いは含めない。`kaggle-analyze` skill はこれを読んで、変わったところだけを反映する
 
 出力は 1 件ごとに 1 行の JSON である。
 
 ```json
-{"type": "discussion", "id": 760095, "dir": "kaggle/discussions/760095_...", "movedLegacy": null, "comments": 1, "commentsTruncated": false}
-{"type": "notebook", "ref": "user/slug", "id_no": 145952068, "dir": "kaggle/notebooks/user__slug", "absDir": "/path/to/repo/kaggle/notebooks/user__slug", "slugChanged": false, "comments": 0, "commentsTruncated": false}
+{"type": "discussion", "id": 760095, "dir": "kaggle/discussions/760095_...", "changes": 12, "comments": 1, "commentsTruncated": false}
+{"type": "notebook", "ref": "user/slug", "id_no": 145952068, "dir": "kaggle/notebooks/145952068_slug", "absDir": "/path/to/repo/kaggle/notebooks/145952068_slug", "slugChanged": false, "changes": 0, "comments": 0, "commentsTruncated": false}
 {"target": "https://example.com/x", "error": "..."}
 ```
 
 - `absDir`: `dir` の絶対パス。Step 3 で使う
+- `changes`: `changes.diff` の行数。`0` は内容が前回の分析から変わっていない。`null` は差分を作っていない (`insights.md` が無いか、前回の分析がどの取得をもとにしたか分からない)
 - `commentsTruncated`: コメントが 300 件を超えたため読み込みを打ち切った。`comments` は読み込めた件数
 - `error`: その 1 件は取得できていない。他の件は取得できている
 
@@ -108,7 +109,8 @@ kaggle kernels output <ref> -p <absDir>/outputs -o
 次を返す。報告する内容はこれですべてである。
 
 - 取得できた件ごとに、`dir` と、コメントの件数
-- `movedLegacy`、`slugChanged`、`commentsTruncated` があった件
+- `slugChanged`、`commentsTruncated` があった件
+- `changes` が `0` だった件 (内容が変わっていない)
 - `--outputs` があれば、件ごとに保存したファイルの名前。`Next page token:` が出た件は、一部だけであること。取得に失敗した件は、そのエラー
 - 失敗した件と `error` の内容。原因の見当がつけば添える (Troubleshooting を参照)
 - リポジトリの `.gitignore` に `.playwright-cli/` が無いとき (`.gitignore` が無いときも含む) は、追加の依頼。playwright-cli が作業ディレクトリに作るログで、成果物ではない。`.gitignore` は自分では作らず、書き換えない

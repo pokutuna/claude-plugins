@@ -7,18 +7,23 @@
 and recommend which to fetch.
 
 Usage:
-    uv run list.py --session NAME [--kind discussion|notebook|both] [--since YYYY-MM-DD] <competition-slug>
+    uv run list.py --session NAME [--kind discussion|notebook|both] [--since YYYY-MM-DD[THH:MM]] <competition-slug>
 
 The listings are read with list-discussions.mjs and list-notebooks.mjs in the playwright-cli
 session NAME, which the caller has opened (playwright-cli -s=NAME open, or attach --extension).
 This script does not open or close it.
 
-The date is local midnight. Without it, 7 days ago.
+--since is local time; a date alone is local midnight. Without it, 7 days ago.
 
-Each item gets a state compared with the files under kaggle/ of the current repository:
+Each item gets a state compared with what was recorded when it was last fetched into kaggle/
+of the current repository:
     new      not fetched
-    updated  fetched before the latest activity (discussion) or run (notebook)
-    fetched  fetched after it
+    updated  discussion: more comments than `## Comments (N)` of discussion.md
+             notebook: another version than `version` of listing.json (older listing.json
+             without it: a later run than its runAt, or than the `取得:` line of source.md)
+             Anything without such a record, like a notebook without source.md, is updated
+    fetched  otherwise. A change of votes alone does not make an item updated
+Notebooks are matched by kernel id, so a notebook whose slug changed is still the same one.
 and `recommended` with `reason`, by these rules applied to new and updated items:
     1. 10 candidates or fewer: all of them
     2. otherwise the top 10. Discussions rank by votes. Notebooks take the top by score and
@@ -32,6 +37,7 @@ The notebook listing is also saved to `listingFile`, to pass to fetch.py --listi
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -82,61 +88,71 @@ def to_local(iso: str | None) -> str | None:
     return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone().isoformat()
 
 
-def state_of(fetched: Path | None, latest: str | None) -> str:
-    if fetched is None:
-        return "new"
-    if latest and datetime.fromtimestamp(
-        fetched.stat().st_mtime
-    ).astimezone() < datetime.fromisoformat(latest.replace("Z", "+00:00")):
-        return "updated"
-    return "fetched"
+def parse_time(iso: str | None) -> datetime | None:
+    if not iso:
+        return None
+    t = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    return t if t.tzinfo else t.astimezone()
+
+
+def fetched_time(path: Path) -> datetime | None:
+    """The `取得:` line that fetch.py writes."""
+    m = re.search(r"^取得: (\S+)", path.read_text(errors="replace")[:2000], re.M)
+    try:
+        return parse_time(m.group(1)) if m else None
+    except ValueError:
+        return None
+
+
+def later(iso: str | None, last: datetime | None) -> bool:
+    """Whether iso is after last. Without the record of last, it is taken as after."""
+    t = parse_time(iso)
+    # 前の版の listing.json は runAt を秒までしか持たないので、秒で比べる
+    return last is None or (t is not None and t.replace(microsecond=0) > last)
 
 
 def discussion_state(root: Path, topic: dict) -> dict:
     base = root / "kaggle" / "discussions"
     fetched = next(iter(base.glob(f"{topic['id']}_*/discussion.md")), None)
-    # 旧形式の、分析だけのファイル (<id>_<タイトル>.md)
-    fetched = fetched or next(
-        (p for p in base.glob(f"{topic['id']}_*.md") if p.is_file()), None
-    )
+    if fetched is None:
+        return {"state": "new", "localDir": None}
+
+    text = fetched.read_text(errors="replace")
+    m = re.search(r"^## Comments \((\d+)\)", text, re.M)
+    if m is None:
+        updated = True
+    elif "読み込みを途中で打ち切った" in text:
+        # 読めた件数は一覧の件数より少ないので、件数では比べられない。最終活動の時刻で比べる
+        updated = later(topic["activityAt"], fetched_time(fetched))
+    else:
+        updated = topic["comments"] > int(m.group(1))
     return {
-        "state": state_of(fetched, topic["activityAt"]),
-        "localDir": str(fetched.parent.relative_to(root))
-        if fetched and fetched.name == "discussion.md"
-        else None,
+        "state": "updated" if updated else "fetched",
+        "localDir": str(fetched.parent.relative_to(root)),
     }
 
 
-def notebook_dir(root: Path, ref: str) -> Path | None:
-    base = root / "kaggle" / "notebooks"
-    for meta in base.glob("*/kernel-metadata.json"):
-        try:
-            if json.loads(meta.read_text()).get("id") == ref:
-                return meta.parent
-        except (json.JSONDecodeError, OSError):
-            continue
-    d = base / ref.replace("/", "__")
-    return d if d.is_dir() else None
-
-
 def notebook_state(root: Path, nb: dict) -> dict:
-    d = notebook_dir(root, nb["ref"])
-    fetched = None
-    prev_score = None
-    if d:
-        # 取得の印は kernel-metadata.json。それを保存しない旧形式で取得したものは .ipynb
-        fetched = (
-            d / "kernel-metadata.json"
-            if (d / "kernel-metadata.json").exists()
-            else next(d.glob("*.ipynb"), None)
-        )
-        listing = d / "listing.json"
-        if listing.exists():
-            prev_score = json.loads(listing.read_text()).get("score")
+    base = root / "kaggle" / "notebooks"
+    d = next((p for p in base.glob(f"{nb['id']}_*") if p.is_dir()), None)
+    if d is None:
+        return {"state": "new", "localDir": None, "prevScore": None}
+    listing = {}
+    if (d / "listing.json").exists():
+        listing = json.loads((d / "listing.json").read_text())
+    fetched = d / "source.md"
+    if not fetched.exists():
+        # source.md を書く前の形式で取得したもの。いつの版か分からないので取り直す
+        updated = True
+    elif listing.get("version") is not None:
+        updated = listing["version"] != nb["version"]
+    else:
+        last = parse_time(listing.get("runAt")) or fetched_time(fetched)
+        updated = later(nb["runAt"], last)
     return {
-        "state": state_of(fetched, nb["runAt"]),
-        "localDir": str(d.relative_to(root)) if d else None,
-        "prevScore": prev_score,
+        "state": "updated" if updated else "fetched",
+        "localDir": str(d.relative_to(root)),
+        "prevScore": listing.get("score"),
     }
 
 
@@ -198,11 +214,18 @@ def main() -> None:
     ap.add_argument(
         "--kind", choices=["discussion", "notebook", "both"], default="both"
     )
-    ap.add_argument("--since")
+    ap.add_argument("--since", help="YYYY-MM-DD or YYYY-MM-DDTHH:MM, local time")
     ap.add_argument("--session", required=True)
     ap.add_argument("slug")
     args = ap.parse_args()
-    since = args.since or (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    if args.since:
+        try:
+            since = datetime.fromisoformat(args.since)
+        except ValueError:
+            sys.exit(f"--since must be YYYY-MM-DD or YYYY-MM-DDTHH:MM: {args.since}")
+    else:
+        since = datetime.now() - timedelta(days=7)
+    since = since.astimezone().isoformat(timespec="minutes")
     root = repo_root()
     result: dict = {"slug": args.slug, "since": since}
 
@@ -258,7 +281,10 @@ def main() -> None:
         )
         json.dump(
             {
-                n["ref"]: {k: n[k] for k in ("score", "votes", "comments", "runAt")}
+                n["ref"]: {
+                    k: n[k]
+                    for k in ("id", "version", "score", "votes", "comments", "runAt")
+                }
                 for n in items
             },
             listing,
