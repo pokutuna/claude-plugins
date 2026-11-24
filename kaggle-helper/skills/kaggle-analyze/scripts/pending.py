@@ -23,6 +23,8 @@ Each target gets a mode:
     full        insights.md is behind, but which fetch it came from is unknown: read the whole
     unchanged   changes.diff is empty. The `取得:` line of insights.md (and `公開スコア:`
                 for a notebook) is brought up to date here, so nothing is left to analyze
+    trivial     changes.diff only has changes that do not affect the analysis (see
+                trivial_change). The header lines are brought up to date as for unchanged
     invalid     insights.md does not start with `URL:`
     unfetched   nothing fetched for the target: fetch it with kaggle-fetch first
 
@@ -127,6 +129,114 @@ def bring_up_to_date(d: Path, kind: str, fetched: str, insights: Path) -> None:
     insights.write_text(text)
 
 
+# fetch.py が差分を取る前に除く `取得:` の行。差分の行番号は、この行を除いたもので数える
+DIFF_FETCHED_RE = re.compile(r"^取得: (\S+)\n", re.M)
+DIFF_FILE_RE = re.compile(r"^--- (\S+) \(取得 ")
+HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+CELL_RE = re.compile(r"^<!-- cell \d+ (\w+)")
+NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*")
+# discussion の投稿者の行。表示順位と votes は取得のたびに変わる
+AUTHOR_RE = re.compile(r"^(\*\*@|### #\d+ @)")
+AUTHOR_DISPLAY_RE = re.compile(r" \(\d+(?:st|nd|rd|th)\)| \[\d+ votes?\]")
+NOTEBOOK_URL_LINE_RE = re.compile(r"^URL: https://www\.kaggle\.com/code/")
+METADATA_KEYS_RE = re.compile(r'^\s*"(title|id|code_file)": ')
+
+
+def changed_pairs(diff: str) -> list[tuple[str, int, str, str]] | None:
+    """Pair the removed and added lines of changes.diff, one to one in order.
+
+    Returns (file, line number in the new file, old line, new line) for each pair, or None
+    when a removed or added line has no counterpart, or a file appears twice (the diff of
+    several fetches appended, whose line numbers do not match the current file).
+    """
+    pairs: list[tuple[str, int, str, str]] = []
+    seen: set[str] = set()
+    name, line_no, header = "", 0, False
+    removed: list[str] = []
+    added: list[tuple[int, str]] = []
+
+    def flush() -> bool:
+        if len(removed) != len(added):
+            return False
+        pairs.extend((name, n, o, a) for o, (n, a) in zip(removed, added))
+        removed.clear()
+        added.clear()
+        return True
+
+    for line in diff.splitlines():
+        if m := DIFF_FILE_RE.match(line):
+            if not flush() or m.group(1) in seen:
+                return None
+            name, header = m.group(1), True
+            seen.add(name)
+        elif header or line.startswith("\\"):
+            # ファイル名の次の `+++` の行と、`\ No newline at end of file`
+            header = False
+        elif m := HUNK_RE.match(line):
+            if not flush():
+                return None
+            line_no = int(m.group(1))
+        elif line.startswith("-"):
+            if added and not flush():
+                return None
+            removed.append(line[1:])
+        elif line.startswith("+"):
+            added.append((line_no, line[1:]))
+            line_no += 1
+        else:
+            if not flush():
+                return None
+            line_no += 1
+    return pairs if flush() else None
+
+
+def trivial_change(d: Path, kind: str, diff: str) -> bool:
+    """Whether every change in changes.diff is one that does not affect the analysis.
+
+    Only these count, and anything else (a code cell changed by a single line, a new comment)
+    is left to the analysis:
+    - notebook: the title on line 1 and the `URL:` line of source.md and comments.md, `title`,
+      `id` and `code_file` of kernel-metadata.json (they follow the title), and lines of
+      Markdown cells in source.md whose only change is in the numbers
+    - discussion: the rank and votes shown on the lines of the poster and the commenters
+    """
+    pairs = changed_pairs(diff)
+    if not pairs:
+        return False
+    cells: list[str | None] = []
+    if kind == "notebook":
+        cell = None
+        source = DIFF_FETCHED_RE.sub("", (d / "source.md").read_text(errors="replace"), count=1)
+        for line in source.splitlines():
+            if m := CELL_RE.match(line):
+                cell = m.group(1)
+            cells.append(cell)
+
+    def allowed(name: str, n: int, old: str, new: str) -> bool:
+        if kind == "discussion":
+            return (
+                name == "discussion.md"
+                and bool(AUTHOR_RE.match(old) and AUTHOR_RE.match(new))
+                and AUTHOR_DISPLAY_RE.sub("", old) == AUTHOR_DISPLAY_RE.sub("", new)
+            )
+        if name == "kernel-metadata.json":
+            m, k = METADATA_KEYS_RE.match(old), METADATA_KEYS_RE.match(new)
+            return bool(m and k and m.group(1) == k.group(1))
+        if name not in ("source.md", "comments.md"):
+            return False
+        if n == 1 or (NOTEBOOK_URL_LINE_RE.match(old) and NOTEBOOK_URL_LINE_RE.match(new)):
+            return True
+        return (
+            name == "source.md"
+            and n <= len(cells)
+            and cells[n - 1] == "markdown"
+            and not CELL_RE.match(new)
+            and NUMBER_RE.sub("0", old) == NUMBER_RE.sub("0", new)
+        )
+
+    return all(allowed(*p) for p in pairs)
+
+
 def check(root: Path, target: str, d: Path | None) -> dict:
     result = {
         "target": target,
@@ -170,9 +280,9 @@ def check(root: Path, target: str, d: Path | None) -> dict:
         result["mode"] = "done"
     elif not changes.exists() or not fetched:
         result["mode"] = "full"
-    elif changes.read_text().strip() == "":
+    elif changes.read_text().strip() == "" or trivial_change(d, kind, changes.read_text()):
         bring_up_to_date(d, kind, fetched, insights)
-        result["mode"] = "unchanged"
+        result["mode"] = "unchanged" if changes.read_text().strip() == "" else "trivial"
         result["insightsBytes"] = insights.stat().st_size
     else:
         result["mode"] = "diff"

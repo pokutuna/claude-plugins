@@ -42,11 +42,12 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py [引数...
 - `diff`: `changes.diff` (`changes` 行) に前回の分析からの差分がある。分析する
 - `full`: `insights.md` が古いが、差分の基準が分からない。分析する
 - `unchanged`: 取り直したが、内容は変わっていなかった。スクリプトが `insights.md` の `取得:` 行 (notebook は `公開スコア:` 行も) を書き換え済み。分析しない
+- `trivial`: 変化が分析に影響しないものだけだった。notebook はタイトル、slug、Markdown セルの中の数字だけ、discussion は votes と順位の表示だけの変化である。`unchanged` と同じく、スクリプトが書き換え済み。分析しない
 - `done`: 分析は済んでいる。分析しない
 - `invalid`: `insights.md` が `URL:` で始まらない。分析せず、報告する
 - `unfetched`: 取得したものが無い。先に `kaggle-fetch` skill で取得し、取得できたら同じ引数で Step 1 をやり直す
 
-分析するものが無ければ、その旨と `unchanged` の件数を伝えて終える。
+分析するものが無ければ、その旨と、`unchanged` と `trivial` の件数を伝えて終える。
 
 ### Step 2: 分析する
 
@@ -55,6 +56,10 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py [引数...
 - discussion: `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/references/discussion.md`
 - notebook: `${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/references/notebook.md`
 
+分析で読むのは、対象のディレクトリのファイルと、notebook では次の手元の状況だけである。リポジトリのほかの場所を調べて、手元の状況を補ったりしない。
+
+- 手元の状況: リポジトリのルートの `kaggle/kaggle-helper.md` に `## 手元の状況` の節があれば、その本文。notebook の参考度を決めるときに使う。無ければ、手元の状況は無しで分析する
+
 対象が 1 件のときは、そのファイルを読み、自分で分析して `insights.md` を書く。
 
 対象が 2 件以上のときは、1 件ごとに Agent ツールで subagent を起動し、並列に分析させる。subagent は自分で `insights.md` を書き、要点 1 行だけを返す。
@@ -62,11 +67,12 @@ uv run ${CLAUDE_PLUGIN_ROOT}/skills/kaggle-analyze/scripts/pending.py [引数...
 - `subagent_type` は `general-purpose` にし、`model` は指定しない。このセッションのモデルが使われる
 - 同時に起動するのは 5 件までにする。それより多ければ、終わった分から次を起動する
 - 途中で、1 件ごとの報告やファイルの確認をしない。完了の通知を待つだけにし、ScheduleWakeup などで待ち合わせを仕掛けない
-- プロンプトは次の文面をそのまま使い、`<種類>`、`<手順のファイル>`、`<ディレクトリ>` を埋める。空欄を残さない
+- プロンプトは次の文面をそのまま使い、`<種類>`、`<手順のファイル>`、`<ディレクトリ>` を埋める。`手元の状況:` の行は、notebook で手元の状況があるときだけ残し、その本文をそのまま続ける。それ以外は行ごと消す。空欄を残さない
 
 ```
 Kaggle の <種類> を分析し、結果を insights.md に書く。手順とテンプレートは <手順のファイル> にある。最初にそのファイルを読み、それに従うこと。
 対象のディレクトリ: <リポジトリのルートの絶対パス>/<ディレクトリ>
+手元の状況: <kaggle/kaggle-helper.md の「手元の状況」の本文>
 書き終えたら、要点 1 行だけを最終応答として返すこと。既存の insights.md を直したときは、今回の変化の要点を書く。変化が分析に影響せず、取得: の行だけを書き換えたときは、そう書く。書けなかったときは、その理由を返す。
 ```
 
@@ -77,7 +83,7 @@ Kaggle の <種類> を分析し、結果を insights.md に書く。手順と�
 次を 1 度だけ報告する。報告する内容はこれですべてである。
 
 - 分析した件ごとに、`insights.md` のパスと要点 1 行
-- `unchanged` だった件数
+- `unchanged` と `trivial` だった件数
 - 失敗した件とその理由 (Step 3 で `done` にならなかったもの、`invalid` だったもの)
 
 ## Examples
