@@ -43,7 +43,7 @@ Project-scoped installation has known bugs that prevent installing the same plug
 | [hydra-experiment](./hydra-experiment/) | Guide Hydra-based ML experiment management |
 | [runpod](./runpod/) | RunPod GPU cloud management - check GPU availability, upload models |
 | [uv-features](./uv-features/) | Recommend lesser-known uv features (PEP 723, uvx, uv run --with, etc.) |
-| [side-fork](./side-fork/) | Fork session and open original in a new tmux pane (new pane = experimental branch) |
+| [side-fork](./side-fork/) | Fork session into a new herdr workspace/tab or tmux window (new one = experimental branch) |
 | [kaggle-helper](./kaggle-helper/) | Kaggle discussion and notebook analysis for competition research |
 | [things-app](./things-app/) | Read and update tasks in Things 3 via JXA |
 | [toggle-plugins](./toggle-plugins/) | Turn plugins and skills on or off per settings layer in a pane (a mod) |

@@ -1,7 +1,7 @@
 {
   "name": "side-fork",
-  "description": "Fork the current Claude session and open the fork in a new tmux or screen window, so the new window becomes the experimental branch.",
-  "version": "0.1.3",
+  "description": "Fork the current Claude session and open the fork in a new herdr workspace or tab, or a new tmux or screen window, so the new one becomes the experimental branch.",
+  "version": "0.2.0",
   "author": {
     "name": "pokutuna"
   },
@@ -10,6 +10,7 @@
   "keywords": [
     "fork",
     "session",
+    "herdr",
     "tmux",
     "screen",
     "workflow"

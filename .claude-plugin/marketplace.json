@@ -52,7 +52,7 @@
     },
     {
       "name": "side-fork",
-      "description": "Fork the current Claude session and open the fork in a new tmux or screen window",
+      "description": "Fork the current Claude session and open the fork in a new herdr workspace or tab, or a new tmux or screen window",
       "source": "./side-fork",
       "homepage": "https://github.com/pokutuna/claude-plugins/tree/main/side-fork"
     },
